@@ -370,7 +370,7 @@ const ShipmentsPage = () => {
           if (result?._id) {
             toast.success("Shipment created successfully!");
             // Refetch current page
-            await fetchShipmentsData(
+            fetchShipmentsData(
               pagination.currentPage,
               reduxSortConfig.field,
               reduxSortConfig.order
