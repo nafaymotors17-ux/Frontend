@@ -43,42 +43,43 @@ const MigrationTool = () => {
   };
 
   const executeMigration = async (dryRun = false) => {
-    try {
-      setLoading(true);
-      const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_API_URL
-        }/admin/migration/execute?dryRun=${dryRun}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
+    // try {
+    //   setLoading(true);
+    //   const accessToken = localStorage.getItem("accessToken");
+    //   const response = await fetch(
+    //     `${
+    //       import.meta.env.VITE_API_URL
+    //     }/admin/migration/execute?dryRun=${dryRun}`,
+    //     {
+    //       method: "POST",
+    //       headers: {
+    //         "Content-Type": "application/json",
+    //         Authorization: `Bearer ${accessToken}`,
+    //       },
+    //     }
+    //   );
 
-      const result = await response.json();
-      if (result.success) {
-        if (dryRun) {
-          toast.info("Dry run completed - check results");
-        } else {
-          toast.success("Migration executed successfully!");
-        }
-        setAnalysis(result.data);
-        if (!dryRun) {
-          await fetchAnalysis();
-          await verifyMigration();
-        }
-      } else {
-        toast.error(result.message || "Migration failed");
-      }
-    } catch (error) {
-      toast.error(error.message || "Migration failed");
-    } finally {
-      setLoading(false);
-    }
+    //   const result = await response.json();
+    //   if (result.success) {
+    //     if (dryRun) {
+    //       toast.info("Dry run completed - check results");
+    //     } else {
+    //       toast.success("Migration executed successfully!");
+    //     }
+    //     setAnalysis(result.data);
+    //     if (!dryRun) {
+    //       await fetchAnalysis();
+    //       await verifyMigration();
+    //     }
+    //   } else {
+    //     toast.error(result.message || "Migration failed");
+    //   }
+    // } catch (error) {
+    //   toast.error(error.message || "Migration failed");
+    // } finally {
+    //   setLoading(false);
+    // }
+    window.alert("You are not authorized to perform this action");
   };
 
   const verifyMigration = async () => {
