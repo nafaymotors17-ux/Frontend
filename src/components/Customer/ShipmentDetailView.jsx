@@ -347,7 +347,7 @@ const ShipmentDetailView = () => {
                         Vessel Name
                       </label>
                       <p className="mt-1 text-sm text-gray-900 font-medium">
-                        {shipment.vesselName || "Not specified"}
+                        {shipment.vessel?.vesselName || "Not specified"}
                       </p>
                     </div>
                   </div>

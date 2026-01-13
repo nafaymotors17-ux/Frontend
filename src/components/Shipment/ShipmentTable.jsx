@@ -14,6 +14,9 @@ import {
 } from "react-icons/fa";
 import { getStoragePeriodColor } from "../../utils/utils";
 import RemarksModal from "../Layout/RemarksModal";
+import VesselInfoModal from "../Layout/VesselInfoModal";
+import EditShipmentModal from "../Layout/EditShipmentModal";
+import PhotoManagementModal from "../Layout/PhotoManagementModal";
 
 // Memoized table row component to prevent unnecessary re-renders
 const ShipmentTableRow = memo(
@@ -26,6 +29,8 @@ const ShipmentTableRow = memo(
     onEdit,
     onDelete,
     onRemarksClick,
+    onVesselClick,
+    onPhotoClick,
     user,
     getStatusColor,
     getStoragePeriodColor,
@@ -37,7 +42,7 @@ const ShipmentTableRow = memo(
 
     return (
       <tr
-        className={`hover:bg-blue-50 transition-colors cursor-pointer ${
+        className={`hover:bg-blue-50 transition-colors ${
           isSelected
             ? "bg-yellow-50"
             : index % 2 === 0
@@ -78,18 +83,36 @@ const ShipmentTableRow = memo(
         )}
 
         {isVisible("vessel") && (
-          <td className={cellClass}>{shipment.vesselName || "-"}</td>
-        )}
-
-        {isVisible("customer") && (
-          <td className={`${cellClass} text-blue-700`}>
-            {getCompanyName(shipment?.clientId?.name)}
+          <td className={cellClass}>
+            {shipment.vessel?.vesselName ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onVesselClick?.(shipment);
+                }}
+                className="text-blue-600 hover:text-blue-800 hover:underline font-medium cursor-pointer"
+                title="Click to view/edit vessel details"
+              >
+                {shipment.vessel.vesselName}
+              </button>
+            ) : (
+              "-"
+            )}
           </td>
         )}
 
-        {isVisible("id") && (
-          <td className={`${cellClass} font-mono text-gray-600`}>
-            {shipment.clientId?.userId || "-"}
+        {isVisible("customer") && (
+          <td className={cellClass}>
+            <div className="flex flex-col">
+              <span className="text-blue-700 font-medium">
+                {getCompanyName(shipment?.clientId?.name)}
+              </span>
+              {shipment.clientId?.userId && (
+                <span className="text-xs text-gray-500 font-mono mt-0.5">
+                  {shipment.clientId.userId}
+                </span>
+              )}
+            </div>
           </td>
         )}
 
@@ -103,7 +126,7 @@ const ShipmentTableRow = memo(
 
         {isVisible("job") && (
           <td className={`${cellClass} font-mono`}>
-            {shipment.jobNumber || "-"}
+            {shipment.vessel?.jobNumber || "-"}
           </td>
         )}
 
@@ -114,7 +137,7 @@ const ShipmentTableRow = memo(
         )}
 
         {isVisible("pod") && (
-          <td className={cellClass}>{shipment?.pod || "-"}</td>
+          <td className={cellClass}>{shipment?.vessel?.pod || "-"}</td>
         )}
 
         {isVisible("status") && (
@@ -154,7 +177,16 @@ const ShipmentTableRow = memo(
 
         {isVisible("photos") && (
           <td className={`${cellClass} text-center`}>
-            {shipment?.carId?.imageCount ?? 0}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onPhotoClick && onPhotoClick(shipment, e);
+              }}
+              className="text-blue-600 hover:text-blue-800 hover:underline font-medium cursor-pointer"
+              title="Click to manage photos"
+            >
+              {shipment?.carId?.imageCount ?? 0}
+            </button>
           </td>
         )}
 
@@ -234,6 +266,8 @@ const ShipmentTable = ({
   onSortChange,
   sortConfig,
   onUpdateRemarks,
+  onVesselUpdate,
+  onShipmentUpdate, // Callback to update shipment in parent state
 }) => {
   const navigate = useNavigate();
   let user = null;
@@ -250,6 +284,18 @@ const ShipmentTable = ({
   const [remarksModalOpen, setRemarksModalOpen] = useState(false);
   const [selectedShipmentForRemarks, setSelectedShipmentForRemarks] =
     useState(null);
+  
+  // State for vessel info modal
+  const [vesselModalOpen, setVesselModalOpen] = useState(false);
+  const [selectedVesselInfo, setSelectedVesselInfo] = useState(null);
+  
+  // State for edit shipment modal
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedShipmentForEdit, setSelectedShipmentForEdit] = useState(null);
+  
+  // State for photo management modal (separate from edit modal)
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [selectedShipmentForPhotos, setSelectedShipmentForPhotos] = useState(null);
   // Column Visibility State with sessionStorage persistence
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const columnMenuRef = useRef(null);
@@ -407,14 +453,46 @@ const ShipmentTable = ({
   const handleEdit = useCallback(
     (shipmentId, e) => {
       e.stopPropagation();
-      if (onEdit) {
-        const shipment = shipments?.find((s) => s._id === shipmentId);
-        if (shipment) onEdit(shipment);
-      } else {
-        navigate(`/admin/shipments/edit/${shipmentId}`);
+      const shipment = shipments?.find((s) => s._id === shipmentId);
+      if (shipment) {
+        setSelectedShipmentForEdit(shipment);
+        setEditModalOpen(true);
       }
     },
-    [onEdit, shipments, navigate]
+    [shipments]
+  );
+
+
+  const handleShipmentUpdate = useCallback(
+    (updatedShipment) => {
+      // Update the specific shipment in the shipments array
+      if (onShipmentUpdate) {
+        onShipmentUpdate(updatedShipment);
+      }
+      // Also update local state if needed
+      setSelectedShipmentForEdit(updatedShipment);
+    },
+    [onShipmentUpdate]
+  );
+
+  const handlePhotoClick = useCallback(
+    (shipment, e) => {
+      e.stopPropagation();
+      // Open separate photo management modal
+      setSelectedShipmentForPhotos(shipment);
+      setPhotoModalOpen(true);
+    },
+    []
+  );
+  
+  const handlePhotoUpdate = useCallback(
+    (updatedData) => {
+      // Update only imageCount in the shipments array
+      if (onShipmentUpdate) {
+        onShipmentUpdate(updatedData);
+      }
+    },
+    [onShipmentUpdate]
   );
 
   const handleDelete = useCallback(
@@ -439,6 +517,23 @@ const ShipmentTable = ({
     },
     [onUpdateRemarks]
   );
+
+  const handleVesselClick = useCallback((shipment) => {
+    // Pass the entire vessel object from shipment to avoid server fetch
+    setSelectedVesselInfo({
+      vessel: shipment.vessel, // Full vessel object already fetched
+      vesselId: shipment.vessel?._id || shipment.vesselId,
+      vesselName: shipment.vessel?.vesselName,
+    });
+    setVesselModalOpen(true);
+  }, []);
+
+  const handleVesselUpdateCallback = useCallback((updatedVessel) => {
+    // Notify parent component to refresh
+    if (onVesselUpdate) {
+      onVesselUpdate();
+    }
+  }, [onVesselUpdate]);
 
   // Memoized styling classes
   const headerClass = useMemo(
@@ -581,11 +676,11 @@ const ShipmentTable = ({
               {isVisible("vessel") && (
                 <th
                   className={`${headerClass} cursor-pointer hover:bg-gray-300 transition-colors`}
-                  onClick={() => handleSortChange("vesselName")}
+                  onClick={() => handleSortChange("vessel.vesselName")}
                 >
                   <div className="flex items-center justify-between">
                     Vessel
-                    {getSortIndicator("vesselName")}
+                    {getSortIndicator("vessel.vesselName")}
                   </div>
                 </th>
               )}
@@ -602,10 +697,8 @@ const ShipmentTable = ({
                 </th>
               )} */}
               {isVisible("customer") && (
-                <th className={headerClass}>Customer </th>
+                <th className={headerClass}>Customer / ID</th>
               )}
-
-              {isVisible("id") && <th className={headerClass}>ID</th>}
               {isVisible("makeModel") && (
                 <th className={headerClass}>Make/Model</th>
               )}
@@ -617,11 +710,11 @@ const ShipmentTable = ({
               {isVisible("pod") && (
                 <th
                   className={`${headerClass} cursor-pointer hover:bg-gray-300 transition-colors`}
-                  onClick={() => handleSortChange("pod")}
+                  onClick={() => handleSortChange("vessel.pod")}
                 >
                   <div className="flex items-center justify-between">
                     POD
-                    {getSortIndicator("pod")}
+                    {getSortIndicator("vessel.pod")}
                   </div>
                 </th>
               )}
@@ -682,6 +775,8 @@ const ShipmentTable = ({
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onRemarksClick={handleRemarksClick}
+                onVesselClick={handleVesselClick}
+                onPhotoClick={handlePhotoClick}
                 user={user}
                 getStatusColor={getStatusColor}
                 getStoragePeriodColor={getStoragePeriodColor}
@@ -700,6 +795,41 @@ const ShipmentTable = ({
         onClose={() => setRemarksModalOpen(false)}
         shipment={selectedShipmentForRemarks}
         onSave={handleSaveRemarks}
+      />
+
+      {/* Vessel Info Modal */}
+      <VesselInfoModal
+        isOpen={vesselModalOpen}
+        onClose={() => {
+          setVesselModalOpen(false);
+          setSelectedVesselInfo(null);
+        }}
+        vessel={selectedVesselInfo?.vessel} // Pass full vessel object
+        vesselId={selectedVesselInfo?.vesselId}
+        vesselName={selectedVesselInfo?.vesselName}
+        onUpdate={handleVesselUpdateCallback}
+      />
+
+      {/* Edit Shipment Modal */}
+      <EditShipmentModal
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setSelectedShipmentForEdit(null);
+        }}
+        shipment={selectedShipmentForEdit}
+        onUpdate={handleShipmentUpdate}
+      />
+
+      {/* Photo Management Modal (Separate) */}
+      <PhotoManagementModal
+        isOpen={photoModalOpen}
+        onClose={() => {
+          setPhotoModalOpen(false);
+          setSelectedShipmentForPhotos(null);
+        }}
+        shipmentId={selectedShipmentForPhotos?._id}
+        onUpdate={handlePhotoUpdate}
       />
     </div>
   );

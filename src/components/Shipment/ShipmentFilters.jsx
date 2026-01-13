@@ -8,6 +8,8 @@ import {
   FaFileExport,
   FaTrash,
   FaCalendarAlt,
+  FaShip,
+  FaCalendarCheck,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -23,6 +25,8 @@ const ShipmentFilters = ({
   onAddShipment,
   onExportCSV,
   onDeleteSelected,
+  onAssignVessel,
+  onAssignGateOut,
 }) => {
   const handleInputChange = (field) => (e) =>
     onFilterChange(field, e.target.value);
@@ -143,7 +147,7 @@ const ShipmentFilters = ({
   };
 
   // const textFields = ["jobNumber", "chassisNumber", "vesselName", "glNumber"];
-  const textFields = ["jobNumber", "chassisNumber", "vesselName"];
+  const textFields = ["jobNumber", "chassisNumber", "vesselName", "pod"];
   const dropdowns = [
     {
       field: "clientId",
@@ -281,12 +285,26 @@ const ShipmentFilters = ({
           </button>
         </div>
         {selectedRowsCount > 0 && user?.role === "admin" && (
-          <button
-            onClick={onDeleteSelected}
-            className="flex items-center gap-1 bg-red-600 text-white px-2 py-1.5 rounded text-xs"
-          >
-            <FaTrash className="text-xs" /> Delete ({selectedRowsCount})
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={onAssignVessel}
+              className="flex items-center gap-1 bg-purple-600 text-white px-2 py-1.5 rounded text-xs hover:bg-purple-700"
+            >
+              <FaShip className="text-xs" /> Assign Vessel ({selectedRowsCount})
+            </button>
+            <button
+              onClick={onAssignGateOut}
+              className="flex items-center gap-1 bg-indigo-600 text-white px-2 py-1.5 rounded text-xs hover:bg-indigo-700"
+            >
+              <FaCalendarCheck className="text-xs" /> Assign Gate Out ({selectedRowsCount})
+            </button>
+            <button
+              onClick={onDeleteSelected}
+              className="flex items-center gap-1 bg-red-600 text-white px-2 py-1.5 rounded text-xs hover:bg-red-700"
+            >
+              <FaTrash className="text-xs" /> Delete ({selectedRowsCount})
+            </button>
+          </div>
         )}
       </div>
     </div>

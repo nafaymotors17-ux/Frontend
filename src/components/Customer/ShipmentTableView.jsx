@@ -141,7 +141,9 @@ const VehicleCell = memo(({ vehicle }) => {
 VehicleCell.displayName = "VehicleCell";
 
 // Vessel & POD Combined Component
-const VesselPodCell = memo(({ vesselName, pod }) => {
+const VesselPodCell = memo(({ vessel }) => {
+  const vesselName = vessel?.vesselName;
+  const pod = vessel?.pod;
   if (!vesselName && !pod)
     return <span className="text-gray-400 text-sm">-</span>;
 
@@ -234,7 +236,7 @@ const MobileCard = memo(({ shipment, onSelect }) => {
 
             {/* Vessel & POD */}
             <VesselPodCell
-              vesselName={shipment.vesselName}
+              vessel={shipment.vessel}
               pod={shipment.pod}
             />
           </div>
@@ -352,8 +354,7 @@ const DesktopTable = memo(({ shipments, onSelect }) => {
                 {/* Combined Vessel & POD */}
                 <td className="px-2 py-2 whitespace-nowrap">
                   <VesselPodCell
-                    vesselName={shipment.vesselName}
-                    pod={shipment.pod}
+                    vessel={shipment.vessel}
                   />
                 </td>
 

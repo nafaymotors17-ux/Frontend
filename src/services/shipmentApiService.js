@@ -56,6 +56,9 @@ export const shipmentAPI = {
     if (filters.jobNumber) {
       params.append("jobNumber", filters.jobNumber);
     }
+    if (filters.pod && filters.pod.trim()) {
+      params.append("pod", filters.pod.trim());
+    }
     if (filters.inYard) {
       params.append("inYard", filters.inYard);
     }
@@ -439,5 +442,53 @@ export const shipmentAPI = {
       deletedId: res.shipmentId,
       message: res.message,
     };
+  },
+
+  async bulkAssignVessel(shipmentIds, vesselId) {
+    const accessToken = localStorage.getItem("accessToken");
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/admin/shipments/bulk/assign-vessel`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        credentials: "include",
+        body: JSON.stringify({ shipmentIds, vesselId }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.message || "Failed to assign vessel");
+    }
+
+    return result.data;
+  },
+
+  async bulkAssignGateOutDate(shipmentIds, gateOutDate) {
+    const accessToken = localStorage.getItem("accessToken");
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/admin/shipments/bulk/assign-gateout`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        credentials: "include",
+        body: JSON.stringify({ shipmentIds, gateOutDate }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.message || "Failed to assign gate out date");
+    }
+
+    return result.data;
   },
 };

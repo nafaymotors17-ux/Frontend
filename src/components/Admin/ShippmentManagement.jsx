@@ -23,6 +23,8 @@ import ShipmentTable from "../Shipment/ShipmentTable";
 import ShipmentPagination from "../Shipment/ShipmentPagination";
 import AddShipmentModal from "../Layout/ShipmentModal";
 import CSVModal from "../Layout/CSVModal";
+import BulkAssignVesselModal from "../Layout/BulkAssignVesselModal";
+import BulkAssignGateOutModal from "../Layout/BulkAssignGateOutModal";
 
 const ShipmentsPage = () => {
   const dispatch = useDispatch();
@@ -49,6 +51,8 @@ const ShipmentsPage = () => {
   const [csvModal, setCSVModal] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState(null);
   const [saveMode, setSaveMode] = useState("save");
+  const [showVesselModal, setShowVesselModal] = useState(false);
+  const [showGateOutModal, setShowGateOutModal] = useState(false);
 
   const customerList = useSelector((state) => state.users.dropdownUsers);
   const customers = customerList.length ? customerList : [];
@@ -195,8 +199,9 @@ const ShipmentsPage = () => {
 
   const handlePageSizeChange = useCallback(
     (newPageSize) => {
-      // Ensure pageSize is valid (10, 20, or 50)
-      const pageSize = Math.max(10, Math.min(50, newPageSize || 50));
+      // Ensure pageSize is valid (20, 50, or 100)
+      const validSizes = [20, 50, 100];
+      const pageSize = validSizes.includes(newPageSize) ? newPageSize : 50;
       // Update Redux state first
       dispatch(setPageSize(pageSize));
       dispatch(setCurrentPage(1));
@@ -479,6 +484,36 @@ const ShipmentsPage = () => {
     );
   }, []);
 
+  // Handle vessel update
+  const handleVesselUpdate = useCallback(() => {
+    // Refresh shipments data after vessel update
+    fetchShipmentsData();
+  }, [fetchShipmentsData]);
+
+  // Handle inline shipment update (optimized - no refetch)
+  const handleShipmentUpdate = useCallback((updatedShipment) => {
+    // Update the specific shipment in the local state
+    // Handle partial updates (e.g., only imageCount from photo modal)
+    setShipments((prev) =>
+      prev.map((s) => {
+        if ((s._id || s.id) === (updatedShipment._id || updatedShipment.id)) {
+          // Deep merge for nested objects like carId
+          if (updatedShipment.carId?.imageCount !== undefined) {
+            return {
+              ...s,
+              carId: {
+                ...s.carId,
+                imageCount: updatedShipment.carId.imageCount,
+              },
+            };
+          }
+          return { ...s, ...updatedShipment };
+        }
+        return s;
+      })
+    );
+  }, []);
+
   return (
     <div className="space-y-2 px-4">
       <ShipmentFilters
@@ -492,6 +527,8 @@ const ShipmentsPage = () => {
         onAddShipment={handleAddShipment}
         onExportCSV={() => setCSVModal(true)}
         onDeleteSelected={handleDeleteSelected}
+        onAssignVessel={() => setShowVesselModal(true)}
+        onAssignGateOut={() => setShowGateOutModal(true)}
       />
 
       <div ref={tableRef}>
@@ -506,13 +543,15 @@ const ShipmentsPage = () => {
           onSortChange={onSortChange}
           sortConfig={reduxSortConfig}
           onUpdateRemarks={handleUpdateRemarks}
+          onVesselUpdate={handleVesselUpdate}
+          onShipmentUpdate={handleShipmentUpdate}
         />
       </div>
 
       <ShipmentPagination
         pagination={pagination}
         onPageChange={handlePageChange}
-        onPageSizeChange={undefined}
+        onPageSizeChange={handlePageSizeChange}
         loading={loading || operationLoading}
       />
 
@@ -531,6 +570,30 @@ const ShipmentsPage = () => {
           customerList={customers}
           shipment={selectedShipment}
           mode={saveMode}
+        />
+      )}
+
+      {showVesselModal && (
+        <BulkAssignVesselModal
+          isOpen={showVesselModal}
+          onClose={() => setShowVesselModal(false)}
+          selectedShipmentIds={selectedRows}
+          onSuccess={() => {
+            fetchShipmentsData();
+            dispatch(toggleAllSelection({ shipmentIds: [] }));
+          }}
+        />
+      )}
+
+      {showGateOutModal && (
+        <BulkAssignGateOutModal
+          isOpen={showGateOutModal}
+          onClose={() => setShowGateOutModal(false)}
+          selectedShipmentIds={selectedRows}
+          onSuccess={() => {
+            fetchShipmentsData();
+            dispatch(toggleAllSelection({ shipmentIds: [] }));
+          }}
         />
       )}
     </div>

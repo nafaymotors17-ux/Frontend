@@ -333,9 +333,24 @@ const PhotoManagement = ({
     try {
       const success = await savePhotoChanges();
       if (success) {
-        // Notify parent if needed
-        if (onSave) {
-          onSave();
+        // Fetch updated shipment to get latest photos
+        try {
+          const updatedShipment = await shipmentAPI.getShipmentById(shipmentId);
+          const updatedPhotos = updatedShipment?.carId?.images || [];
+          
+          // Update local photos state
+          setPhotos(updatedPhotos);
+          
+          // Notify parent with updated photos
+          if (onSave) {
+            onSave(updatedPhotos);
+          }
+        } catch (fetchError) {
+          console.error("Failed to fetch updated photos:", fetchError);
+          // Still notify parent with current photos
+          if (onSave) {
+            onSave(photos.filter(p => !photosToDelete.includes(p._id)));
+          }
         }
       }
     } catch (error) {

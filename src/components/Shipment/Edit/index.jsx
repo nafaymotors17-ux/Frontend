@@ -69,7 +69,7 @@ const EditShipmentPage = () => {
         gateOutDate: formData.gateOutDate
           ? new Date(formData.gateOutDate).toISOString()
           : null,
-        vesselName: formData.vesselName,
+        vesselId: formData.vesselId || null,
         carName: formData.carName,
         chassisNumber: formData.chassisNumber,
         yard: formData.yard,

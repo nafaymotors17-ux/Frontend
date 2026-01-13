@@ -15,6 +15,7 @@ import ShipmentManagement from "./components/Admin/ShippmentManagement";
 import CustomerManagement from "./components/Admin/CustomerManagement";
 import EditShipmentPage from "./components/Shipment/Edit/index";
 import NotFoundPage from "./pages/404Page";
+import MigrationTool from "./components/Admin/MigrationTool";
 
 // Admin layout
 import Admin from "./components/Admin/Admin";
@@ -47,7 +48,10 @@ function App() {
               <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/customer" element={<CustomerDashboard />} />
-              <Route path="/customer/shipment/:id" element={<ShipmentDetail />} />
+              <Route
+                path="/customer/shipment/:id"
+                element={<ShipmentDetail />}
+              />
               <Route path="/admin" element={<Admin />}>
                 <Route index element={<Navigate to="shipments" replace />} />
                 <Route path="shipments" element={<ShipmentManagement />} />
@@ -57,6 +61,7 @@ function App() {
                   element={<EditShipmentPage />}
                 />
                 <Route path="users" element={<CustomerManagement />} />
+                <Route path="migration" element={<MigrationTool />} />
               </Route>
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
