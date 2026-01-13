@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
-import { FaCheckCircle, FaExclamationTriangle, FaSync, FaTrash, FaBroom } from "react-icons/fa";
+import {
+  FaCheckCircle,
+  FaExclamationTriangle,
+  FaSync,
+  FaTrash,
+  FaBroom,
+} from "react-icons/fa";
 
 const MigrationTool = () => {
   const [analysis, setAnalysis] = useState(null);
@@ -41,7 +47,9 @@ const MigrationTool = () => {
       setLoading(true);
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/admin/migration/execute?dryRun=${dryRun}`,
+        `${
+          import.meta.env.VITE_API_URL
+        }/admin/migration/execute?dryRun=${dryRun}`,
         {
           method: "POST",
           headers: {
@@ -107,74 +115,90 @@ const MigrationTool = () => {
   };
 
   const rollbackMigration = async () => {
-    if (!window.confirm("Are you sure you want to rollback the migration? This will remove vesselId references from shipments.")) {
-      return;
-    }
+    // if (
+    //   !window.confirm(
+    //     "Are you sure you want to rollback the migration? This will remove vesselId references from shipments."
+    //   )
+    // ) {
+    //   return;
+    // }
 
-    try {
-      setLoading(true);
-      const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/admin/migration/rollback?confirm=true`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
+    // try {
+    //   setLoading(true);
+    //   const accessToken = localStorage.getItem("accessToken");
+    //   const response = await fetch(
+    //     `${import.meta.env.VITE_API_URL}/admin/migration/rollback?confirm=true`,
+    //     {
+    //       method: "POST",
+    //       headers: {
+    //         "Content-Type": "application/json",
+    //         Authorization: `Bearer ${accessToken}`,
+    //       },
+    //     }
+    //   );
 
-      const result = await response.json();
-      if (result.success) {
-        toast.success("Rollback completed successfully");
-        await fetchAnalysis();
-        setVerification(null);
-      } else {
-        toast.error(result.message || "Rollback failed");
-      }
-    } catch (error) {
-      toast.error(error.message || "Rollback failed");
-    } finally {
-      setLoading(false);
-    }
+    //   const result = await response.json();
+    //   if (result.success) {
+    //     toast.success("Rollback completed successfully");
+    //     await fetchAnalysis();
+    //     setVerification(null);
+    //   } else {
+    //     toast.error(result.message || "Rollback failed");
+    //   }
+    // } catch (error) {
+    //   toast.error(error.message || "Rollback failed");
+    // } finally {
+    //   setLoading(false);
+    // }
+    window.alert("You are not authorized to perform rollback");
   };
 
   const cleanupOldFields = async () => {
-    if (!window.confirm("WARNING: This will permanently remove vesselName, pod, and jobNumber fields from shipments. This is IRREVERSIBLE! Are you absolutely sure?")) {
-      return;
-    }
+    // if (
+    //   !window.confirm(
+    //     "WARNING: This will permanently remove vesselName, pod, and jobNumber fields from shipments. This is IRREVERSIBLE! Are you absolutely sure?"
+    //   )
+    // ) {
+    //   return;
+    // }
 
-    if (!window.confirm("This action cannot be undone. Type 'CONFIRM' to proceed.")) {
-      return;
-    }
+    // if (
+    //   !window.confirm(
+    //     "This action cannot be undone. Type 'CONFIRM' to proceed."
+    //   )
+    // ) {
+    //   return;
+    // }
 
-    try {
-      setLoading(true);
-      const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/admin/migration/cleanup?confirm=true&verifyFirst=true`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
+    // try {
+    //   setLoading(true);
+    //   const accessToken = localStorage.getItem("accessToken");
+    //   const response = await fetch(
+    //     `${
+    //       import.meta.env.VITE_API_URL
+    //     }/admin/migration/cleanup?confirm=true&verifyFirst=true`,
+    //     {
+    //       method: "POST",
+    //       headers: {
+    //         "Content-Type": "application/json",
+    //         Authorization: `Bearer ${accessToken}`,
+    //       },
+    //     }
+    //   );
 
-      const result = await response.json();
-      if (result.success) {
-        toast.success("Cleanup completed successfully");
-        await fetchAnalysis();
-      } else {
-        toast.error(result.message || "Cleanup failed");
-      }
-    } catch (error) {
-      toast.error(error.message || "Cleanup failed");
-    } finally {
-      setLoading(false);
-    }
+    //   const result = await response.json();
+    //   if (result.success) {
+    //     toast.success("Cleanup completed successfully");
+    //     await fetchAnalysis();
+    //   } else {
+    //     toast.error(result.message || "Cleanup failed");
+    //   }
+    // } catch (error) {
+    //   toast.error(error.message || "Cleanup failed");
+    // } finally {
+    //   setLoading(false);
+    // }
+    window.alert("You are not authorized to perform this action");
   };
 
   useEffect(() => {
@@ -184,9 +208,12 @@ const MigrationTool = () => {
   return (
     <div className="p-6 space-y-6">
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Vessel Migration Tool</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+          Vessel Migration Tool
+        </h2>
         <p className="text-gray-600 mb-6">
-          This tool helps migrate existing vessel data from shipments to the new Vessel entity.
+          This tool helps migrate existing vessel data from shipments to the new
+          Vessel entity.
         </p>
 
         {/* Tabs */}
@@ -234,7 +261,9 @@ const MigrationTool = () => {
               </button>
               <button
                 onClick={() => executeMigration(false)}
-                disabled={loading || (analysis && analysis.unmigratedShipments === 0)}
+                disabled={
+                  loading || (analysis && analysis.unmigratedShipments === 0)
+                }
                 className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
               >
                 Execute Migration
@@ -244,13 +273,17 @@ const MigrationTool = () => {
             {analysis && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="text-sm text-gray-600">Unmigrated Shipments</div>
+                  <div className="text-sm text-gray-600">
+                    Unmigrated Shipments
+                  </div>
                   <div className="text-2xl font-bold text-blue-600">
                     {analysis.unmigratedShipments}
                   </div>
                 </div>
                 <div className="bg-green-50 p-4 rounded-lg">
-                  <div className="text-sm text-gray-600">Migrated Shipments</div>
+                  <div className="text-sm text-gray-600">
+                    Migrated Shipments
+                  </div>
                   <div className="text-2xl font-bold text-green-600">
                     {analysis.migratedShipments}
                   </div>
@@ -270,33 +303,46 @@ const MigrationTool = () => {
               </div>
             )}
 
-            {analysis && analysis.vesselCombinations && analysis.vesselCombinations.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold mb-3">Vessel Combinations to Create</h3>
-                <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-md">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-100 sticky top-0">
-                      <tr>
-                        <th className="px-4 py-2 text-left">Vessel Name</th>
-                        <th className="px-4 py-2 text-left">Job Number</th>
-                        <th className="px-4 py-2 text-left">POD</th>
-                        <th className="px-4 py-2 text-right">Shipments</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {analysis.vesselCombinations.map((vessel, idx) => (
-                        <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="px-4 py-2">{vessel.vesselName || "-"}</td>
-                          <td className="px-4 py-2">{vessel.jobNumber || "-"}</td>
-                          <td className="px-4 py-2">{vessel.pod || "-"}</td>
-                          <td className="px-4 py-2 text-right">{vessel.shipmentCount}</td>
+            {analysis &&
+              analysis.vesselCombinations &&
+              analysis.vesselCombinations.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold mb-3">
+                    Vessel Combinations to Create
+                  </h3>
+                  <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-md">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-100 sticky top-0">
+                        <tr>
+                          <th className="px-4 py-2 text-left">Vessel Name</th>
+                          <th className="px-4 py-2 text-left">Job Number</th>
+                          <th className="px-4 py-2 text-left">POD</th>
+                          <th className="px-4 py-2 text-right">Shipments</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {analysis.vesselCombinations.map((vessel, idx) => (
+                          <tr
+                            key={idx}
+                            className="border-b border-gray-100 hover:bg-gray-50"
+                          >
+                            <td className="px-4 py-2">
+                              {vessel.vesselName || "-"}
+                            </td>
+                            <td className="px-4 py-2">
+                              {vessel.jobNumber || "-"}
+                            </td>
+                            <td className="px-4 py-2">{vessel.pod || "-"}</td>
+                            <td className="px-4 py-2 text-right">
+                              {vessel.shipmentCount}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
         )}
 
@@ -372,8 +418,8 @@ const MigrationTool = () => {
                       Migration Successful!
                     </h4>
                     <p className="text-sm text-blue-700 mb-4">
-                      All shipments have been migrated. You can now safely remove old fields
-                      after thorough testing.
+                      All shipments have been migrated. You can now safely
+                      remove old fields after thorough testing.
                     </p>
                     <div className="flex gap-3">
                       <button
@@ -410,4 +456,3 @@ const MigrationTool = () => {
 };
 
 export default MigrationTool;
-
