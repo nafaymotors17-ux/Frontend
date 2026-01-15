@@ -2,8 +2,13 @@
 import React from "react";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
-const CustomerPagination = ({ pagination, onPageChange, loading }) => {
-  if (pagination.totalPages <= 1) return null;
+const CustomerPagination = ({
+  pagination,
+  onPageChange,
+  onPageSizeChange,
+  loading,
+}) => {
+  if (pagination.totalPages <= 1 && !onPageSizeChange) return null;
 
   const startItem = (pagination.currentPage - 1) * pagination.pageSize + 1;
   const endItem = Math.min(
@@ -14,11 +19,27 @@ const CustomerPagination = ({ pagination, onPageChange, loading }) => {
   return (
     <div className="mt-4 sm:mt-6 bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-0">
-        <div className="text-xs sm:text-sm text-gray-600 text-center sm:text-left">
-          Showing <span className="font-semibold">{startItem}</span> to{" "}
-          <span className="font-semibold">{endItem}</span> of{" "}
-          <span className="font-semibold">{pagination.totalItems}</span>{" "}
-          shipments
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="text-xs sm:text-sm text-gray-600 text-center sm:text-left">
+            Showing <span className="font-semibold">{startItem}</span> to{" "}
+            <span className="font-semibold">{endItem}</span> of{" "}
+            <span className="font-semibold">{pagination.totalItems}</span>{" "}
+            shipments
+          </div>
+          {onPageSizeChange && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs sm:text-sm text-gray-600">Show:</label>
+              <select
+                value={pagination.pageSize || 20}
+                onChange={(e) => onPageSizeChange(parseInt(e.target.value))}
+                disabled={loading}
+                className="px-2 py-1 border border-gray-300 rounded text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col xs:flex-row items-center gap-3">

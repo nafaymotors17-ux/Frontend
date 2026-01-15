@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { FaShip } from "react-icons/fa";
+import { FaShip, FaDownload } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 import {
@@ -18,6 +18,8 @@ import ShipmentTable from "./ShipmentTableView";
 import CustomerHeader from "./Header";
 import CustomerFilters from "./Filters";
 import CustomerPagination from "./TablePagination";
+import ShipmentDetailModal from "./ShipmentDetailModal";
+import PhotosModal from "./PhotosModal";
 
 const CustomerDashboard = () => {
   const dispatch = useDispatch();
@@ -27,11 +29,30 @@ const CustomerDashboard = () => {
   );
   const { user } = useSelector((state) => state.auth);
 
+  // Check if user can mass download photos
+  useEffect(() => {
+    if (user?.canMassDownloadPhotos) {
+      setCanMassDownload(true);
+    }
+  }, [user]);
+
   // Local state for shipments data (not in Redux for performance)
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [viewMode, setViewMode] = useState("auto"); // "auto", "mobile", "desktop"
+  const [selectedShipments, setSelectedShipments] = useState([]);
+  const [detailModal, setDetailModal] = useState({
+    isOpen: false,
+    shipmentId: null,
+    shipmentData: null,
+  });
+  const [photoModal, setPhotoModal] = useState({
+    isOpen: false,
+    shipmentId: null,
+    shipmentData: null,
+  });
+  const [canMassDownload, setCanMassDownload] = useState(false);
   const tableRef = useRef(null);
 
   // Refs to avoid stale closures in callbacks
@@ -56,7 +77,7 @@ const CustomerDashboard = () => {
 
         const result = await customerShipmentAPI.getShipments({
           page,
-          limit: currentPagination.pageSize || 10,
+          limit: currentPagination.pageSize || 20,
           search: currentFilters.search || "",
           status: currentFilters.status || "",
           dateFrom: currentFilters.dateFrom || "",
@@ -64,20 +85,23 @@ const CustomerDashboard = () => {
           dateType: currentFilters.dateType || "",
         });
 
+        // Clear selection when data changes
+        setSelectedShipments([]);
+
         // Update shipments in local state
         setShipments(result.data || []);
 
         // Update pagination in Redux with the actual response
         dispatch(setPagination(result.pagination));
 
-        // Scroll to top after data is loaded
-        if (tableRef.current) {
-          setTimeout(() => {
+        // Scroll to top after data is loaded (only if not initial load)
+        if (tableRef.current && pageOverride !== null) {
+          requestAnimationFrame(() => {
             tableRef.current?.scrollIntoView({
               behavior: "smooth",
               block: "start",
             });
-          }, 100);
+          });
         }
       } catch (error) {
         const errorMsg = error?.message || "Failed to fetch shipments";
@@ -163,17 +187,370 @@ const CustomerDashboard = () => {
     [dispatch, fetchShipmentsData]
   );
 
-  // Handle shipment selection - navigate to URL instead of Redux state
-  const handleSelectShipment = useCallback(
+  // Handle shipment selection - show modal with already loaded data
+  const handleSelectShipment = useCallback((shipment) => {
+    const shipmentId = shipment._id || shipment.id;
+    if (shipmentId) {
+      // Store the shipment data to avoid refetching
+      setDetailModal({ isOpen: true, shipmentId, shipmentData: shipment });
+    } else {
+      toast.error("Shipment ID not found");
+    }
+  }, []);
+
+  // Handle view details - same as handleSelectShipment but for table view button
+  const handleViewDetails = useCallback(
     (shipment) => {
-      const shipmentId = shipment._id || shipment.id;
-      if (shipmentId) {
-        navigate(`/customer/shipment/${shipmentId}`);
-      } else {
-        toast.error("Shipment ID not found");
-      }
+      handleSelectShipment(shipment);
     },
-    [navigate]
+    [handleSelectShipment]
+  );
+
+  // Handle view photos - open photos modal directly
+  const handleViewPhotos = useCallback((shipment) => {
+    const shipmentId = shipment._id || shipment.id;
+    if (shipmentId) {
+      setPhotoModal({ isOpen: true, shipmentId, shipmentData: shipment });
+    } else {
+      toast.error("Shipment ID not found");
+    }
+  }, []);
+
+  // Handle photo download - checks for ZIP first, then individual photos
+  const handleDownloadPhoto = useCallback(async (shipment) => {
+    const shipmentId = shipment._id || shipment.id;
+    if (!shipmentId) {
+      toast.error("Shipment ID not found");
+      return;
+    }
+
+    const accessToken = localStorage.getItem("accessToken");
+    if (!accessToken) {
+      toast.error("Authentication required. Please login again.");
+      return;
+    }
+
+    const downloadUrl = `${
+      import.meta.env.VITE_API_URL
+    }/photos/download?shipmentId=${shipmentId}`;
+
+    const preparingToast = toast.loading("Preparing download...", {
+      position: "bottom-right",
+    });
+
+    try {
+      const response = await fetch(downloadUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = {
+            message: errorText || `Download failed: ${response.status}`,
+          };
+        }
+        throw new Error(
+          errorData.message || `Download failed: ${response.status}`
+        );
+      }
+
+      // Check content-type BEFORE reading response body
+      const contentType = response.headers.get("content-type") || "";
+
+      // If JSON response (ZIP file from CloudFront)
+      if (contentType.includes("application/json")) {
+        const data = await response.json();
+        if (data.downloadUrl && data.type === "zip") {
+          // Direct download from CloudFront URL
+          window.open(data.downloadUrl, "_blank");
+          toast.dismiss(preparingToast);
+          toast.success(
+            "Download started! Check your browser's download manager."
+          );
+          return;
+        } else {
+          throw new Error(data.message || "Invalid download response");
+        }
+      }
+
+      // Otherwise, it's a blob (ZIP created from individual photos)
+      const blob = await response.blob();
+      if (blob.size === 0) {
+        throw new Error("Downloaded file is empty");
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${shipment.carId?.chassisNumber || shipmentId}_photos.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.dismiss(preparingToast);
+      toast.success("Download started! Check your browser's download manager.");
+    } catch (error) {
+      console.error("Download error:", error);
+      toast.dismiss(preparingToast);
+      toast.error(
+        error.message || "Failed to download photos. Please try again."
+      );
+    }
+  }, []);
+
+  // Ref to prevent multiple toast notifications
+  const toastShownRef = useRef(false);
+
+  // Handle toggle selection
+  const handleToggleSelect = useCallback((shipmentId) => {
+    setSelectedShipments((prev) => {
+      if (prev.includes(shipmentId)) {
+        // Reset toast flag when deselecting
+        if (prev.length === 21) {
+          toastShownRef.current = false;
+        }
+        return prev.filter((id) => id !== shipmentId);
+      } else {
+        if (prev.length >= 20) {
+          // Only show toast once
+          if (!toastShownRef.current) {
+            toast.warning("Maximum 20 shipments can be selected for download");
+            toastShownRef.current = true;
+            // Reset flag after 2 seconds
+            setTimeout(() => {
+              toastShownRef.current = false;
+            }, 2000);
+          }
+          return prev;
+        }
+        return [...prev, shipmentId];
+      }
+    });
+  }, []);
+
+  // Handle mass download - bundle all into single ZIP with progress
+  const handleMassDownload = useCallback(async () => {
+    if (selectedShipments.length === 0) {
+      toast.warning("Please select at least one shipment to download");
+      return;
+    }
+
+    if (selectedShipments.length > 20) {
+      toast.error("Maximum 20 shipments can be selected");
+      return;
+    }
+
+    if (!canMassDownload) {
+      toast.error(
+        "You don't have permission to mass download photos. Please contact admin."
+      );
+      return;
+    }
+
+    const accessToken = localStorage.getItem("accessToken");
+    if (!accessToken) {
+      toast.error("Authentication required. Please login again.");
+      return;
+    }
+
+    // Show progress toast
+    const progressToast = toast.loading(
+      `Preparing download (0/${selectedShipments.length})...`,
+      {
+        position: "bottom-right",
+        autoClose: false,
+      }
+    );
+
+    // Use setTimeout to ensure toast updates happen outside render cycle
+    const updateProgress = (message) => {
+      setTimeout(() => {
+        toast.update(progressToast, {
+          render: message,
+          type: "info",
+        });
+      }, 0);
+    };
+
+    try {
+      // Import JSZip dynamically
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+
+      let successCount = 0;
+      let failCount = 0;
+
+      // Download each shipment's photos and add to master ZIP
+      for (let i = 0; i < selectedShipments.length; i++) {
+        const shipmentId = selectedShipments[i];
+        const shipment = shipments.find((s) => (s._id || s.id) === shipmentId);
+        const downloadUrl = `${
+          import.meta.env.VITE_API_URL
+        }/photos/download?shipmentId=${shipmentId}`;
+
+        try {
+          // Update progress
+          updateProgress(
+            `Downloading shipment ${i + 1}/${selectedShipments.length}...`
+          );
+
+          const response = await fetch(downloadUrl, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(
+              errorData.message || `Download failed: ${response.status}`
+            );
+          }
+
+          const contentType = response.headers.get("content-type") || "";
+          let zipBlob = null;
+
+          // If JSON response (ZIP file from CloudFront)
+          if (contentType.includes("application/json")) {
+            const data = await response.json();
+            if (data.downloadUrl && data.type === "zip") {
+              // Download ZIP from CloudFront URL
+              const zipResponse = await fetch(data.downloadUrl);
+              if (!zipResponse.ok)
+                throw new Error("Failed to download ZIP from CloudFront");
+              zipBlob = await zipResponse.blob();
+            } else {
+              throw new Error(data.message || "Invalid download response");
+            }
+          } else {
+            // Blob response (ZIP created from individual photos)
+            zipBlob = await response.blob();
+            if (zipBlob.size === 0) {
+              throw new Error("Downloaded file is empty");
+            }
+          }
+
+          // Extract files from downloaded ZIP and add to master ZIP
+          const shipmentZip = await JSZip.loadAsync(zipBlob);
+          const folderName = shipment?.carId?.chassisNumber || shipmentId;
+
+          // Add all files from this shipment's ZIP to master ZIP with folder structure
+          // Use Promise.all to handle async file operations properly
+          const filePromises = [];
+          shipmentZip.forEach((relativePath, file) => {
+            if (!file.dir) {
+              // Use arraybuffer for browser compatibility (not nodebuffer)
+              filePromises.push(
+                file.async("arraybuffer").then((arrayBuffer) => {
+                  zip.file(`${folderName}/${relativePath}`, arrayBuffer);
+                })
+              );
+            }
+          });
+
+          // Wait for all files to be added
+          await Promise.all(filePromises);
+
+          successCount++;
+        } catch (error) {
+          console.error(`Error downloading shipment ${shipmentId}:`, error);
+          failCount++;
+          // Continue with other shipments even if one fails
+        }
+
+        // Small delay to avoid overwhelming the system
+        if (i < selectedShipments.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+      }
+
+      // Generate final ZIP
+      if (successCount > 0) {
+        updateProgress(
+          `Creating bundle (${successCount} shipment${
+            successCount !== 1 ? "s" : ""
+          })...`
+        );
+
+        // Generate ZIP as blob (browser-compatible)
+        const finalZipBlob = await zip.generateAsync({
+          type: "blob",
+          compression: "DEFLATE",
+          compressionOptions: { level: 6 },
+        });
+
+        // Download the bundled ZIP
+        const url = window.URL.createObjectURL(finalZipBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `shipments_photos_${
+          new Date().toISOString().split("T")[0]
+        }.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        // Show final result first, then clear selection
+        toast.dismiss(progressToast);
+        if (failCount > 0) {
+          toast.warning(
+            `Downloaded ${successCount} shipment(s), ${failCount} failed. Check console for details.`,
+            { position: "bottom-right", autoClose: 5000 }
+          );
+        } else {
+          toast.success(
+            `Successfully downloaded ${successCount} shipment(s) as a single ZIP file!`,
+            { position: "bottom-right", autoClose: 4000 }
+          );
+        }
+
+        // Clear selection after showing result (use setTimeout to avoid state update during render)
+        setTimeout(() => {
+          setSelectedShipments([]);
+        }, 0);
+      } else {
+        // No successful downloads
+        toast.dismiss(progressToast);
+        toast.error(`Failed to download any shipments. Please try again.`, {
+          position: "bottom-right",
+          autoClose: 5000,
+        });
+      }
+    } catch (error) {
+      console.error("Mass download error:", error);
+      toast.dismiss(progressToast);
+      toast.error(
+        `Failed to create bundle: ${error.message || "Unknown error"}`
+      );
+    }
+  }, [selectedShipments, shipments, canMassDownload]);
+
+  // Handle page size change
+  const handlePageSizeChange = useCallback(
+    (newPageSize) => {
+      const validSizes = [20, 50];
+      const pageSize = validSizes.includes(newPageSize) ? newPageSize : 20;
+      // Update Redux state first
+      dispatch(setPagination({ ...pagination, pageSize, currentPage: 1 }));
+      // Update ref immediately so fetchShipmentsData uses the new pageSize
+      paginationRef.current = {
+        ...paginationRef.current,
+        pageSize,
+        currentPage: 1,
+      };
+      // Fetch with new page size
+      fetchShipmentsData(1);
+    },
+    [dispatch, pagination, fetchShipmentsData]
   );
 
   // Handle logout
@@ -267,17 +644,41 @@ const CustomerDashboard = () => {
           />
         </div>
 
-        {/* Shipments Table Container */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        {/* Shipments Table Container - Improved Design */}
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+          {/* Selection Header - Like Admin Panel */}
+          {canMassDownload && selectedShipments.length > 0 && (
+            <div className="border-b-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                <span className="text-sm font-semibold text-gray-900">
+                  {selectedShipments.length} shipment(s) selected (max 20)
+                </span>
+              </div>
+              <button
+                onClick={handleMassDownload}
+                className="px-5 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all font-medium text-sm flex items-center gap-2 shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                <FaDownload />
+                Download Selected
+              </button>
+            </div>
+          )}
+
           {loading && shipments.length === 0 ? (
-            <div className="p-12 sm:p-16 text-center">
+            <div className="p-16 text-center">
               <div className="flex flex-col items-center justify-center gap-4">
-                <div className="animate-spin rounded-full h-12 w-12 border-3 border-blue-600 border-t-transparent"></div>
+                <div className="relative">
+                  <div className="animate-spin rounded-full h-14 w-14 border-4 border-blue-200 border-t-blue-600"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <FaShip className="text-blue-600 text-lg" />
+                  </div>
+                </div>
                 <div>
                   <p className="text-lg font-semibold text-gray-900">
                     Loading Shipments
                   </p>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="text-sm text-gray-500 mt-1">
                     Please wait while we fetch your data...
                   </p>
                 </div>
@@ -285,43 +686,50 @@ const CustomerDashboard = () => {
             </div>
           ) : shipments.length > 0 ? (
             <>
-              <div ref={tableRef} className="relative">
+              <div ref={tableRef} className="relative min-h-[400px]">
                 {/* Loading overlay - shows on top of existing data */}
                 {loading && (
-                  <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center z-10 backdrop-blur-sm">
+                  <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center z-20 rounded-lg">
                     <div className="text-center">
                       <div className="inline-block animate-spin rounded-full h-10 w-10 border-3 border-blue-600 border-t-transparent"></div>
-                      <p className="mt-3 text-gray-700 text-sm font-medium">Updating...</p>
+                      <p className="mt-3 text-gray-700 text-sm font-medium">
+                        Updating...
+                      </p>
                     </div>
                   </div>
                 )}
                 <ShipmentTable
                   shipments={shipments}
                   onSelectShipment={handleSelectShipment}
+                  onDownloadPhoto={handleDownloadPhoto}
+                  onViewDetails={handleViewDetails}
+                  onViewPhotos={handleViewPhotos}
                   isMobileView={isMobileView}
                   loading={loading}
+                  selectedShipments={selectedShipments}
+                  onToggleSelect={handleToggleSelect}
+                  canSelect={canMassDownload}
                 />
               </div>
 
               {/* Pagination Component */}
-              {pagination.totalPages > 1 && (
-                <div className="border-t border-gray-200 bg-gray-50">
-                  <CustomerPagination
-                    pagination={pagination}
-                    onPageChange={handlePageChange}
-                    loading={loading}
-                  />
-                </div>
-              )}
+              <div className="border-t border-gray-200 bg-gradient-to-b from-gray-50 to-white">
+                <CustomerPagination
+                  pagination={pagination}
+                  onPageChange={handlePageChange}
+                  onPageSizeChange={handlePageSizeChange}
+                  loading={loading}
+                />
+              </div>
             </>
           ) : (
-            /* Empty State */
-            <div className="p-12 sm:p-16 text-center">
+            /* Empty State - Improved Design */
+            <div className="p-16 text-center">
               <div className="max-w-md mx-auto">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FaShip className="w-8 h-8 text-blue-600" />
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+                  <FaShip className="w-10 h-10 text-blue-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
                   {hasActiveFilters
                     ? "No matching shipments"
                     : "No shipments found"}
@@ -334,7 +742,7 @@ const CustomerDashboard = () => {
                 {hasActiveFilters && (
                   <button
                     onClick={handleClearFilters}
-                    className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm shadow-sm"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium text-sm shadow-md hover:shadow-lg transform hover:scale-105"
                   >
                     Clear Filters
                   </button>
@@ -344,6 +752,41 @@ const CustomerDashboard = () => {
           )}
         </div>
       </main>
+
+      {/* Modals */}
+      <ShipmentDetailModal
+        isOpen={detailModal.isOpen}
+        onClose={() =>
+          setDetailModal({
+            isOpen: false,
+            shipmentId: null,
+            shipmentData: null,
+          })
+        }
+        shipmentId={detailModal.shipmentId}
+        shipmentData={detailModal.shipmentData}
+        onViewPhotos={(shipmentId) => {
+          setDetailModal({
+            isOpen: false,
+            shipmentId: null,
+            shipmentData: null,
+          });
+          setPhotoModal({
+            isOpen: true,
+            shipmentId,
+            shipmentData: detailModal.shipmentData,
+          });
+        }}
+      />
+
+      <PhotosModal
+        isOpen={photoModal.isOpen}
+        onClose={() =>
+          setPhotoModal({ isOpen: false, shipmentId: null, shipmentData: null })
+        }
+        shipmentId={photoModal.shipmentId}
+        shipmentData={photoModal.shipmentData}
+      />
     </div>
   );
 };

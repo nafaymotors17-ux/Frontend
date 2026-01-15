@@ -132,4 +132,32 @@ export const userAPI = {
 
     return result.data;
   },
+
+  async toggleMassDownloadPermission(userId, canMassDownloadPhotos) {
+    if (!userId) {
+      throw new Error("User ID is required");
+    }
+
+    const accessToken = localStorage.getItem("accessToken");
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/admin/toggle-mass-download/${userId}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ canMassDownloadPhotos }),
+      }
+    );
+
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(
+        result.message || "Failed to update mass download permission"
+      );
+    }
+
+    return result.data;
+  },
 };

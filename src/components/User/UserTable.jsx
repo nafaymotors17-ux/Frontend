@@ -7,7 +7,10 @@ import {
   FaTrash,
   FaChevronLeft,
   FaChevronRight,
+  FaDownload,
 } from "react-icons/fa";
+import { toast } from "sonner";
+import { userAPI } from "../../services/userApiService";
 
 const UserTable = ({
   users = [],
@@ -16,8 +19,10 @@ const UserTable = ({
   onDelete,
   onPageChange,
   loading,
+  onRefresh,
 }) => {
   const [visiblePasswords, setVisiblePasswords] = useState({});
+  const [togglingUsers, setTogglingUsers] = useState(new Set());
   let loggedInUser = null;
   try {
     const storedUser = localStorage.getItem("userData");
@@ -35,6 +40,34 @@ const UserTable = ({
       ...prev,
       [userId]: !prev[userId],
     }));
+  };
+
+  const handleToggleMassDownload = async (user) => {
+    if (user.role !== "customer") {
+      toast.error("Mass download permission can only be set for customers");
+      return;
+    }
+
+    const newValue = !user.canMassDownloadPhotos;
+    setTogglingUsers((prev) => new Set(prev).add(user._id || user.id));
+
+    try {
+      await userAPI.toggleMassDownloadPermission(user._id || user.id, newValue);
+      toast.success(
+        `Mass download permission ${newValue ? "enabled" : "disabled"} for ${user.name}`
+      );
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (error) {
+      toast.error(error.message || "Failed to update mass download permission");
+    } finally {
+      setTogglingUsers((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(user._id || user.id);
+        return newSet;
+      });
+    }
   };
 
   // Calculate starting number based on current page and page size
@@ -85,9 +118,14 @@ const UserTable = ({
                 Password
               </th>
               {isAdmin && (
-                <th className="border border-gray-400 px-3 py-1 text-left text-xs font-semibold text-gray-800">
-                  Actions
-                </th>
+                <>
+                  <th className="border border-gray-400 px-3 py-1 text-left text-xs font-semibold text-gray-800">
+                    Mass Download
+                  </th>
+                  <th className="border border-gray-400 px-3 py-1 text-left text-xs font-semibold text-gray-800">
+                    Actions
+                  </th>
+                </>
               )}
             </tr>
           </thead>
@@ -142,8 +180,42 @@ const UserTable = ({
                     </div>
                   </td>
 
-                  {/* Actions */}
+                  {/* Mass Download Permission */}
+                  {isAdmin && (
+                    <td className="border border-gray-300 px-3 py-2">
+                      {user.role === "customer" ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleToggleMassDownload(user)}
+                            disabled={togglingUsers.has(user._id || user.id)}
+                            className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                              user.canMassDownloadPhotos
+                                ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            title={
+                              user.canMassDownloadPhotos
+                                ? "Click to disable mass download"
+                                : "Click to enable mass download"
+                            }
+                          >
+                            <FaDownload size={12} />
+                            <span>
+                              {togglingUsers.has(user._id || user.id)
+                                ? "Updating..."
+                                : user.canMassDownloadPhotos
+                                ? "Enabled"
+                                : "Disabled"}
+                            </span>
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400 text-center block">-</span>
+                      )}
+                    </td>
+                  )}
 
+                  {/* Actions */}
                   {isAdmin && (
                     <td className="border border-gray-300 px-3 py-2">
                       <div className="flex gap-3 justify-center">

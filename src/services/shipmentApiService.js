@@ -230,8 +230,15 @@ export const shipmentAPI = {
     );
 
     if (!signedRes.ok) {
-      const error = await signedRes.json();
-      throw new Error(error.message || "Failed to get upload URLs from server");
+      let errorMessage = "Failed to get upload URLs from server";
+      try {
+        const error = await signedRes.json();
+        errorMessage = error.message || errorMessage;
+      } catch (e) {
+        // If response is not JSON (e.g., HTML error page), use status text
+        errorMessage = `Server error: ${signedRes.status} ${signedRes.statusText}`;
+      }
+      throw new Error(errorMessage);
     }
 
     const { signedUrls } = await signedRes.json();
@@ -258,7 +265,7 @@ export const shipmentAPI = {
     };
 
     try {
-      // 4️⃣ Upload phase (0-80% progress)
+      // 4️⃣ Upload phase (0-80% progress) - Use Promise.all for parallel uploads
       updateProgress("uploading", 0, totalFiles, 0);
 
       const uploadResults = await Promise.all(
@@ -271,25 +278,15 @@ export const shipmentAPI = {
             body: file,
           })
             .then((res) => {
-              if (!res.ok) throw new Error(`Upload failed for ${file.name}`);
-              uploadedCount++;
-              // Upload phase: 0-80% of progress
-              updateProgress(
-                "uploading",
-                uploadedCount,
-                totalFiles,
-                Math.round((uploadedCount / totalFiles) * 80)
-              );
+              if (!res.ok) {
+                throw new Error(
+                  `Upload failed for ${file.name}: ${res.status} ${res.statusText}`
+                );
+              }
               return { success: true, fileName: file.name };
             })
             .catch((err) => {
-              uploadedCount++;
-              updateProgress(
-                "uploading",
-                uploadedCount,
-                totalFiles,
-                Math.round((uploadedCount / totalFiles) * 80)
-              );
+              console.error(`Upload error for ${file.name}:`, err);
               return {
                 success: false,
                 fileName: file.name,
@@ -297,6 +294,16 @@ export const shipmentAPI = {
               };
             })
         )
+      );
+
+      // Update progress after all uploads complete
+      const successfulUploads = uploadResults.filter((r) => r.success).length;
+      uploadedCount = successfulUploads;
+      updateProgress(
+        "uploading",
+        uploadedCount,
+        totalFiles,
+        Math.round((uploadedCount / totalFiles) * 80)
       );
 
       // 5️⃣ Check for upload failures
@@ -323,16 +330,23 @@ export const shipmentAPI = {
             shipmentId,
             photos: signedUrls.map((url) => ({
               key: url.key,
-              publicUrl: url.publicUrl,
               fileName: url.fileName,
+              publicUrl: url.publicUrl, // Include publicUrl for backward compatibility
             })),
           }),
         }
       );
 
       if (!confirmRes.ok) {
-        const error = await confirmRes.json();
-        throw new Error(error.message || "Failed to confirm uploaded photos");
+        let errorMessage = "Failed to confirm uploaded photos";
+        try {
+          const error = await confirmRes.json();
+          errorMessage = error.message || errorMessage;
+        } catch (e) {
+          // If response is not JSON (e.g., HTML error page), use status text
+          errorMessage = `Server error: ${confirmRes.status} ${confirmRes.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
 
       // 7️⃣ Complete phase
@@ -363,6 +377,106 @@ export const shipmentAPI = {
       throw error;
     }
   },
+
+  // Upload ZIP file for a shipment
+  async uploadZipFile(shipmentId, zipFile, onProgress) {
+    if (!shipmentId || !zipFile) {
+      throw new Error("Shipment ID and ZIP file are required");
+    }
+
+    // Validate ZIP file size (max 2MB)
+    if (zipFile.size > 2 * 1024 * 1024) {
+      throw new Error("ZIP file size exceeds 2MB limit");
+    }
+
+    // Validate file type
+    if (!zipFile.name.endsWith(".zip") && zipFile.type !== "application/zip") {
+      throw new Error("File must be a ZIP file");
+    }
+
+    const accessToken = localStorage.getItem("accessToken");
+
+    // 1. Get signed URL for ZIP upload
+    const signedRes = await fetch(
+      `${import.meta.env.VITE_API_URL}/photos/upload-zip`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ shipmentId }),
+      }
+    );
+
+    if (!signedRes.ok) {
+      const error = await signedRes.json();
+      throw new Error(error.message || "Failed to get ZIP upload URL");
+    }
+
+    const { uploadUrl, key, fileName } = await signedRes.json();
+
+    if (onProgress) {
+      onProgress({ current: 0, total: 1, percentage: 0, status: "uploading" });
+    }
+
+    // 2. Upload ZIP file to S3
+    const uploadRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/zip",
+      },
+      body: zipFile,
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error("Failed to upload ZIP file to S3");
+    }
+
+    if (onProgress) {
+      onProgress({
+        current: 1,
+        total: 1,
+        percentage: 50,
+        status: "confirming",
+      });
+    }
+
+    // 3. Confirm ZIP upload
+    const confirmRes = await fetch(
+      `${import.meta.env.VITE_API_URL}/photos/confirm-zip`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          shipmentId,
+          zipFileKey: key,
+          zipFileSize: zipFile.size,
+          // zipFileUrl removed - will be constructed from key using CloudFront
+        }),
+      }
+    );
+
+    if (!confirmRes.ok) {
+      const error = await confirmRes.json();
+      throw new Error(error.message || "Failed to confirm ZIP upload");
+    }
+
+    if (onProgress) {
+      onProgress({
+        current: 1,
+        total: 1,
+        percentage: 100,
+        status: "completed",
+      });
+    }
+
+    return await confirmRes.json();
+  },
+
   async getShipmentById(shipmentId) {
     const accessToken = localStorage.getItem("accessToken");
     const response = await fetch(

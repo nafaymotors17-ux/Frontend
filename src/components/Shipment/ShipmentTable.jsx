@@ -11,12 +11,14 @@ import {
   FaSortDown,
   FaComment,
   FaCommentAlt,
+  FaFileArchive,
 } from "react-icons/fa";
 import { getStoragePeriodColor } from "../../utils/utils";
 import RemarksModal from "../Layout/RemarksModal";
 import VesselInfoModal from "../Layout/VesselInfoModal";
 import EditShipmentModal from "../Layout/EditShipmentModal";
 import PhotoManagementModal from "../Layout/PhotoManagementModal";
+import PhotosModal from "../Customer/PhotosModal";
 
 // Memoized table row component to prevent unnecessary re-renders
 const ShipmentTableRow = memo(
@@ -177,16 +179,27 @@ const ShipmentTableRow = memo(
 
         {isVisible("photos") && (
           <td className={`${cellClass} text-center`}>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onPhotoClick && onPhotoClick(shipment, e);
-              }}
-              className="text-blue-600 hover:text-blue-800 hover:underline font-medium cursor-pointer"
-              title="Click to manage photos"
-            >
-              {shipment?.carId?.imageCount ?? 0}
-            </button>
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPhotoClick && onPhotoClick(shipment, e);
+                }}
+                className="text-blue-600 hover:text-blue-800 hover:underline font-medium cursor-pointer"
+                title="Click to manage photos"
+              >
+                {shipment?.carId?.imageCount ?? 0}
+              </button>
+              {shipment?.carId?.zipFileKey && (
+                <div
+                  className="flex items-center gap-1 px-2 py-0.5 bg-green-100 border border-green-300 rounded text-xs"
+                  title="ZIP file available"
+                >
+                  <FaFileArchive className="text-green-700" />
+                  <span className="text-green-700 font-semibold">ZIP</span>
+                </div>
+              )}
+            </div>
           </td>
         )}
 
@@ -284,18 +297,22 @@ const ShipmentTable = ({
   const [remarksModalOpen, setRemarksModalOpen] = useState(false);
   const [selectedShipmentForRemarks, setSelectedShipmentForRemarks] =
     useState(null);
-  
+
   // State for vessel info modal
   const [vesselModalOpen, setVesselModalOpen] = useState(false);
   const [selectedVesselInfo, setSelectedVesselInfo] = useState(null);
-  
+
   // State for edit shipment modal
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedShipmentForEdit, setSelectedShipmentForEdit] = useState(null);
-  
+
   // State for photo management modal (separate from edit modal)
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
-  const [selectedShipmentForPhotos, setSelectedShipmentForPhotos] = useState(null);
+  const [selectedShipmentForPhotos, setSelectedShipmentForPhotos] =
+    useState(null);
+  // State for photos view modal (view/download only)
+  const [photosViewModalOpen, setPhotosViewModalOpen] = useState(false);
+  const [selectedShipmentForView, setSelectedShipmentForView] = useState(null);
   // Column Visibility State with sessionStorage persistence
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const columnMenuRef = useRef(null);
@@ -462,7 +479,6 @@ const ShipmentTable = ({
     [shipments]
   );
 
-
   const handleShipmentUpdate = useCallback(
     (updatedShipment) => {
       // Update the specific shipment in the shipments array
@@ -475,16 +491,20 @@ const ShipmentTable = ({
     [onShipmentUpdate]
   );
 
-  const handlePhotoClick = useCallback(
-    (shipment, e) => {
-      e.stopPropagation();
-      // Open separate photo management modal
-      setSelectedShipmentForPhotos(shipment);
-      setPhotoModalOpen(true);
-    },
-    []
-  );
-  
+  const handlePhotoClick = useCallback((shipment, e) => {
+    e.stopPropagation();
+    // Open photo management modal (for editing)
+    setSelectedShipmentForPhotos(shipment);
+    setPhotoModalOpen(true);
+  }, []);
+
+  const handleViewPhotos = useCallback((shipment, e) => {
+    if (e) e.stopPropagation();
+    // Open photos view modal (for viewing/downloading)
+    setSelectedShipmentForView(shipment);
+    setPhotosViewModalOpen(true);
+  }, []);
+
   const handlePhotoUpdate = useCallback(
     (updatedData) => {
       // Update only imageCount in the shipments array
@@ -528,12 +548,15 @@ const ShipmentTable = ({
     setVesselModalOpen(true);
   }, []);
 
-  const handleVesselUpdateCallback = useCallback((updatedVessel) => {
-    // Notify parent component to refresh
-    if (onVesselUpdate) {
-      onVesselUpdate();
-    }
-  }, [onVesselUpdate]);
+  const handleVesselUpdateCallback = useCallback(
+    (updatedVessel) => {
+      // Notify parent component to refresh
+      if (onVesselUpdate) {
+        onVesselUpdate();
+      }
+    },
+    [onVesselUpdate]
+  );
 
   // Memoized styling classes
   const headerClass = useMemo(
@@ -830,6 +853,18 @@ const ShipmentTable = ({
         }}
         shipmentId={selectedShipmentForPhotos?._id}
         onUpdate={handlePhotoUpdate}
+      />
+
+      {/* Photos View Modal (View/Download) */}
+      <PhotosModal
+        isOpen={photosViewModalOpen}
+        onClose={() => {
+          setPhotosViewModalOpen(false);
+          setSelectedShipmentForView(null);
+        }}
+        shipmentId={selectedShipmentForView?._id}
+        shipmentData={selectedShipmentForView}
+        isAdmin={true}
       />
     </div>
   );

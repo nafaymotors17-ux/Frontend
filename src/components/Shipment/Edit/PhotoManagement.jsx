@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { toast } from "react-toastify";
 import { shipmentAPI } from "../../../services/shipmentApiService";
 import PhotoModal from "./PhotoModal";
+import { FaFileArchive } from "react-icons/fa";
 
 const PhotoManagement = ({
   shipmentId,
@@ -12,10 +13,13 @@ const PhotoManagement = ({
   operationLoading,
 }) => {
   const fileInputRef = useRef(null);
+  const zipInputRef = useRef(null);
 
   const [photos, setPhotos] = useState([]);
   const [newPhotos, setNewPhotos] = useState([]);
   const [photosToDelete, setPhotosToDelete] = useState([]);
+  const [zipFile, setZipFile] = useState(null);
+  const [zipUploadProgress, setZipUploadProgress] = useState(null);
   const [photoModal, setPhotoModal] = useState({
     isOpen: false,
     currentIndex: 0,
@@ -97,6 +101,28 @@ const PhotoManagement = ({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleZipUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.name.endsWith(".zip") && file.type !== "application/zip") {
+      toast.error("Please select a ZIP file", toastConfig);
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("ZIP file size exceeds 2MB limit", toastConfig);
+      return;
+    }
+
+    setZipFile(file);
+    toast.success("ZIP file selected. Click Save to upload.", toastConfig);
+    
+    if (zipInputRef.current) zipInputRef.current.value = "";
+  };
+
   const handleDeletePhoto = (photoId, isNew) => {
     if (isNew) {
       setNewPhotos((prev) => {
@@ -147,7 +173,8 @@ const PhotoManagement = ({
       .map((photo) => ({
         id: photo._id?.toString() || photo._id || photo.key || photo,
         _id: photo._id, // Keep original _id for deletion
-        url: typeof photo === "string" ? photo : photo.url,
+        key: photo.key, // Keep key
+        url: photo.url || (typeof photo === "string" ? photo : null), // Backend provides URL
         isNew: false,
         name:
           typeof photo === "string"
@@ -158,7 +185,7 @@ const PhotoManagement = ({
   ];
 
   const allPhotos = getAllPhotos();
-  const hasChanges = newPhotos.length > 0 || photosToDelete.length > 0;
+  const hasChanges = newPhotos.length > 0 || photosToDelete.length > 0 || zipFile !== null;
 
   // Progress callback for uploads
   const handleUploadProgress = (progress) => {
@@ -225,6 +252,41 @@ const PhotoManagement = ({
         });
 
         uploadSucceeded = true;
+      }
+
+      // 1.5️⃣ Upload ZIP file if selected
+      if (zipFile) {
+        toast.update(toastId, {
+          render: "Uploading ZIP file...",
+          type: "info",
+          isLoading: true,
+        });
+
+        setZipUploadProgress({ current: 0, total: 1, percentage: 0, status: "uploading" });
+
+        try {
+          await shipmentAPI.uploadZipFile(shipmentId, zipFile, (progress) => {
+            setZipUploadProgress(progress);
+          });
+
+          setZipFile(null);
+          setZipUploadProgress(null);
+          toast.update(toastId, {
+            render: "ZIP file uploaded successfully!",
+            type: "success",
+            isLoading: false,
+            autoClose: 3000,
+          });
+        } catch (error) {
+          setZipUploadProgress(null);
+          toast.update(toastId, {
+            render: error.message || "Failed to upload ZIP file",
+            type: "error",
+            isLoading: false,
+            autoClose: 5000,
+          });
+          throw error;
+        }
       }
 
       // 2️⃣ Delete selected photos
@@ -324,6 +386,8 @@ const PhotoManagement = ({
       return [];
     });
     setPhotosToDelete([]);
+    setZipFile(null);
+    setZipUploadProgress(null);
     setUploadProgress(null);
     setUploadError(null);
     setIsUploading(false);
@@ -442,26 +506,37 @@ const PhotoManagement = ({
             </p>
           </div>
           {isEditing && !isUploading && (
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors flex items-center gap-2"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="flex gap-2">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors flex items-center gap-2"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              Upload
-            </button>
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Upload Photos
+              </button>
+              <button
+                onClick={() => zipInputRef.current?.click()}
+                disabled={isUploading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors flex items-center gap-2"
+                title="Upload ZIP file (max 2MB) - Cost-effective option"
+              >
+                <FaFileArchive className="w-4 h-4" />
+                Upload ZIP
+              </button>
+            </div>
           )}
         </div>
         <input
@@ -473,9 +548,56 @@ const PhotoManagement = ({
           className="hidden"
           disabled={isUploading}
         />
+        <input
+          ref={zipInputRef}
+          type="file"
+          accept=".zip,application/zip"
+          onChange={handleZipUpload}
+          className="hidden"
+          disabled={isUploading}
+        />
       </div>
 
       <div className="p-6">
+        {/* ZIP Upload Status */}
+        {zipFile && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FaFileArchive className="text-blue-600" />
+                <span className="text-sm font-medium text-blue-900">
+                  ZIP file selected: {zipFile.name}
+                </span>
+                <span className="text-xs text-blue-600">
+                  ({(zipFile.size / (1024 * 1024)).toFixed(2)} MB)
+                </span>
+              </div>
+              <button
+                onClick={() => setZipFile(null)}
+                className="text-blue-600 hover:text-blue-800 text-sm"
+                disabled={isUploading}
+              >
+                Remove
+              </button>
+            </div>
+            {zipUploadProgress && (
+              <div className="mt-2">
+                <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${zipUploadProgress.percentage}%` }}
+                  ></div>
+                </div>
+                <p className="text-xs text-blue-700 mt-1">
+                  {zipUploadProgress.status === "uploading" && "Uploading ZIP..."}
+                  {zipUploadProgress.status === "confirming" && "Saving..."}
+                  {zipUploadProgress.status === "completed" && "Upload complete!"}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Upload Progress Bar */}
         {isUploading && uploadProgress && (
           <div

@@ -63,6 +63,7 @@ const ShipmentDetailView = () => {
     fetchShipmentDetails();
   }, [id]); // Fetch whenever ID changes
 
+  // Backend now provides URLs directly
   const photos = Array.isArray(shipment?.carId?.images)
     ? shipment.carId.images
     : [];
@@ -236,7 +237,9 @@ const ShipmentDetailView = () => {
     return (
       <div className="min-h-screen bg-gray-50 py-6 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 mb-4">{error || "Failed to load shipment details"}</p>
+          <p className="text-red-600 mb-4">
+            {error || "Failed to load shipment details"}
+          </p>
           <button
             onClick={() => navigate("/customer")}
             className="text-blue-600 hover:text-blue-800 underline"
@@ -561,7 +564,6 @@ const ShipmentDetailView = () => {
           onNavigate={navigatePhoto}
         />
       )}
-
     </div>
   );
 };

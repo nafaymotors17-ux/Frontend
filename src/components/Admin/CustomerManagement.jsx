@@ -234,6 +234,9 @@ const UserManagement = () => {
             onDelete={handleDelete}
             onPageChange={handlePageChange}
             loading={loading}
+            onRefresh={() =>
+              fetchUsersWithFilters(pagination.currentPage, searchTerm)
+            }
           />
         </div>
 
