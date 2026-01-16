@@ -3,12 +3,17 @@ import { toast } from "react-toastify";
 
 /**
  * Download photos for a shipment
- * Checks for ZIP file first, then falls back to individual photos
+ * Downloads photos using signed URLs and creates ZIP in browser
  * @param {string} shipmentId - The shipment ID
  * @param {string} fileName - Optional custom file name
+ * @param {Function} onProgress - Optional progress callback (current, total)
  * @returns {Promise<void>}
  */
-export const downloadShipmentPhotos = async (shipmentId, fileName = null) => {
+export const downloadShipmentPhotos = async (
+  shipmentId,
+  fileName = null,
+  onProgress = null
+) => {
   if (!shipmentId) {
     toast.error("Shipment ID not found");
     return;
@@ -25,6 +30,7 @@ export const downloadShipmentPhotos = async (shipmentId, fileName = null) => {
   });
 
   try {
+    // Get signed URLs from backend
     const downloadUrl = `${
       import.meta.env.VITE_API_URL
     }/photos/download?shipmentId=${shipmentId}`;
@@ -37,59 +43,147 @@ export const downloadShipmentPhotos = async (shipmentId, fileName = null) => {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const contentType = response.headers.get("content-type") || "";
+      let errorData = {};
+      
+      if (contentType.includes("application/json")) {
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          console.error("Failed to parse error response:", e);
+        }
+      } else {
+        const errorText = await response.text().catch(() => "");
+        errorData = { message: errorText || `Download failed: ${response.status} ${response.statusText}` };
+      }
+      
       throw new Error(errorData.message || "Download failed");
     }
 
-    // Check content-type BEFORE reading response body
+    // Check content type before parsing
     const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      const responseText = await response.text();
+      console.error("Unexpected response type:", contentType, responseText);
+      throw new Error(`Invalid response format. Expected JSON, got ${contentType}`);
+    }
 
-    // If JSON response (ZIP file from CloudFront)
-    if (contentType.includes("application/json")) {
-      const data = await response.json();
-      if (data.downloadUrl && data.type === "zip") {
-        // Direct download from CloudFront URL
-        const link = document.createElement("a");
-        link.href = data.downloadUrl;
-        link.download = fileName || data.fileName || `photos_${shipmentId}.zip`;
-        link.target = "_blank";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    let data;
+    try {
+      data = await response.json();
+    } catch (error) {
+      console.error("Failed to parse JSON response:", error);
+      const responseText = await response.text().catch(() => "Unable to read response");
+      console.error("Response text:", responseText);
+      throw new Error("Invalid JSON response from server");
+    }
 
-        toast.dismiss(preparingToast);
-        toast.success(
-          "Download started! Check your browser's download manager.",
-          {
-            position: "bottom-right",
-            autoClose: 4000,
-          }
-        );
-        return;
-      } else {
-        throw new Error(data.message || "Invalid download response");
+    if (!data) {
+      console.error("Empty response data");
+      throw new Error("Empty response from server");
+    }
+
+    if (!data.photos || !Array.isArray(data.photos)) {
+      console.error("Invalid photos data:", data);
+      throw new Error("Invalid response format: photos array not found");
+    }
+
+    if (data.photos.length === 0) {
+      throw new Error("No photos available for download");
+    }
+
+    // Import JSZip dynamically
+    const JSZip = (await import("jszip")).default;
+    const zip = new JSZip();
+
+    const photos = data.photos;
+    const totalPhotos = photos.length;
+
+    // Update progress - starting download
+    if (onProgress) {
+      onProgress(0, totalPhotos);
+    } else {
+      toast.update(preparingToast, {
+        render: `Downloading ${totalPhotos} photo(s) in parallel...`,
+        type: "info",
+      });
+    }
+
+    // Download all photos in parallel using Promise.all for efficiency
+    const downloadPromises = photos.map(async (photo, index) => {
+      try {
+        // Download photo from signed URL (CloudFront cached)
+        const photoResponse = await fetch(photo.url);
+        if (!photoResponse.ok) {
+          console.warn(`Failed to download ${photo.fileName}, skipping...`);
+          return null;
+        }
+
+        const photoBlob = await photoResponse.blob();
+        return {
+          fileName: photo.fileName,
+          blob: photoBlob,
+          index: index,
+        };
+      } catch (error) {
+        console.error(`Error downloading ${photo.fileName}:`, error);
+        return null;
       }
+    });
+
+    // Wait for all downloads to complete in parallel
+    const downloadResults = await Promise.all(downloadPromises);
+
+    // Filter out failed downloads and add to ZIP
+    const successfulDownloads = downloadResults.filter((result) => result !== null);
+
+    if (successfulDownloads.length === 0) {
+      throw new Error("Failed to download any photos");
     }
 
-    // Otherwise, it's a blob (ZIP created from individual photos)
-    const blob = await response.blob();
-    if (blob.size === 0) {
-      throw new Error("Downloaded file is empty");
+    // Add all downloaded photos to ZIP
+    successfulDownloads.forEach((result) => {
+      zip.file(result.fileName, result.blob);
+    });
+
+    // Update progress - all downloaded
+    if (onProgress) {
+      onProgress(totalPhotos, totalPhotos);
     }
-    const url = window.URL.createObjectURL(blob);
+
+    // Generate ZIP file
+    toast.update(preparingToast, {
+      render: "Creating ZIP file...",
+      type: "info",
+    });
+
+    const zipBlob = await zip.generateAsync({
+      type: "blob",
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 },
+    });
+
+    // Download the ZIP
+    const finalFileName =
+      fileName ||
+      `${data.chassisNumber || shipmentId}_photos.zip`;
+    const url = window.URL.createObjectURL(zipBlob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = fileName || `photos_${shipmentId}.zip`;
+    a.download = finalFileName;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
 
     toast.dismiss(preparingToast);
-    toast.success("Download started! Check your browser's download manager.", {
-      position: "bottom-right",
-      autoClose: 4000,
-    });
+    toast.success(
+      `Downloaded ${successfulDownloads.length} photo(s) as ZIP file!`,
+      {
+        position: "bottom-right",
+        autoClose: 4000,
+      }
+    );
   } catch (error) {
     console.error("Download error:", error);
     toast.dismiss(preparingToast);
@@ -100,87 +194,4 @@ export const downloadShipmentPhotos = async (shipmentId, fileName = null) => {
   }
 };
 
-/**
- * Download ZIP file directly (if available)
- * This only works if a ZIP file was uploaded, not for individual photos
- * @param {string} shipmentId - The shipment ID
- * @param {string} zipFileKey - The ZIP file key from shipment.carId.zipFileKey
- * @param {string} fileName - Optional custom file name
- * @returns {Promise<void>}
- */
-export const downloadZipFile = async (
-  shipmentId,
-  zipFileKey,
-  fileName = null
-) => {
-  if (!shipmentId || !zipFileKey) {
-    toast.error("ZIP file not available");
-    return;
-  }
-
-  const accessToken = localStorage.getItem("accessToken");
-  if (!accessToken) {
-    toast.error("Authentication required. Please login again.");
-    return;
-  }
-
-  const preparingToast = toast.loading("Preparing ZIP download...", {
-    position: "bottom-right",
-  });
-
-  try {
-    // Use the same download endpoint - it will return ZIP if available
-    const downloadUrl = `${
-      import.meta.env.VITE_API_URL
-    }/photos/download?shipmentId=${shipmentId}`;
-
-    const response = await fetch(downloadUrl, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || "ZIP download failed");
-    }
-
-    const contentType = response.headers.get("content-type") || "";
-
-    // If JSON response (ZIP file from CloudFront)
-    if (contentType.includes("application/json")) {
-      const data = await response.json();
-      if (data.downloadUrl && data.type === "zip") {
-        const link = document.createElement("a");
-        link.href = data.downloadUrl;
-        link.download = fileName || data.fileName || `photos_${shipmentId}.zip`;
-        link.target = "_blank";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        toast.dismiss(preparingToast);
-        toast.success("ZIP download started!", {
-          position: "bottom-right",
-          autoClose: 4000,
-        });
-        return;
-      } else {
-        throw new Error(data.message || "ZIP file not available");
-      }
-    }
-
-    // If blob response, it means backend created ZIP from individual photos
-    // For "ZIP only" download, we should only proceed if we got JSON (CloudFront URL)
-    // Otherwise, it means no ZIP file exists, only individual photos
-    throw new Error("ZIP file not available. Only individual photos exist.");
-  } catch (error) {
-    console.error("ZIP download error:", error);
-    toast.dismiss(preparingToast);
-    toast.error(
-      error.message || "Failed to download ZIP file. Please try again."
-    );
-    throw error;
-  }
-};
+// ZIP file download removed - all downloads now use downloadShipmentPhotos which creates ZIP in browser

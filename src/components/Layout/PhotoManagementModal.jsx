@@ -2,11 +2,8 @@ import { useState, useEffect } from "react";
 import { shipmentAPI } from "../../services/shipmentApiService";
 import PhotoManagement from "../Shipment/Edit/PhotoManagement";
 import PhotosModal from "../Customer/PhotosModal";
-import {
-  downloadShipmentPhotos,
-  downloadZipFile,
-} from "../../utils/photoDownload";
-import { FaTimes, FaEye, FaDownload, FaFileArchive } from "react-icons/fa";
+import { downloadShipmentPhotos } from "../../utils/photoDownload";
+import { FaTimes, FaDownload } from "react-icons/fa";
 import { toast } from "sonner";
 
 const PhotoManagementModal = ({ isOpen, onClose, shipmentId, onUpdate }) => {
@@ -90,29 +87,7 @@ const PhotoManagementModal = ({ isOpen, onClose, shipmentId, onUpdate }) => {
     }
   };
 
-  const handleDownloadZip = async () => {
-    if (!currentShipment?._id || !currentShipment?.carId?.zipFileKey) {
-      toast.error("ZIP file not available");
-      return;
-    }
-
-    setDownloading(true);
-    try {
-      const fileName = currentShipment?.carId?.chassisNumber
-        ? `${currentShipment.carId.chassisNumber}_photos.zip`
-        : `photos_${currentShipment._id}.zip`;
-
-      await downloadZipFile(
-        currentShipment._id,
-        currentShipment.carId.zipFileKey,
-        fileName
-      );
-    } catch (error) {
-      console.error("ZIP download error:", error);
-    } finally {
-      setDownloading(false);
-    }
-  };
+  // ZIP download functionality removed - all downloads now use downloadShipmentPhotos
 
   if (!isOpen) return null;
 
@@ -150,46 +125,16 @@ const PhotoManagementModal = ({ isOpen, onClose, shipmentId, onUpdate }) => {
           <div className="flex items-center gap-2">
             {currentShipment && (
               <>
-                {(currentShipment.carId?.images?.length > 0 ||
-                  currentShipment.carId?.zipFileKey) && (
-                  <>
-                    <button
-                      onClick={() => setPhotosViewModalOpen(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                      title="View and download photos"
-                    >
-                      <FaEye />
-                      <span>View</span>
-                    </button>
-                    {currentShipment.carId?.zipFileKey && (
-                      <button
-                        onClick={handleDownloadZip}
-                        disabled={downloading}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 transition-colors text-sm font-medium"
-                        title="Download ZIP file"
-                      >
-                        <FaFileArchive />
-                        <span>Download ZIP</span>
-                      </button>
-                    )}
-                    <button
-                      onClick={handleDownload}
-                      disabled={downloading}
-                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 transition-colors text-sm font-medium"
-                      title="Download all photos as ZIP"
-                    >
-                      <FaDownload />
-                      <span>Download</span>
-                    </button>
-                  </>
-                )}
-                {currentShipment.carId?.zipFileKey && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-100 border border-green-300 rounded-lg">
-                    <FaFileArchive className="text-green-700 text-xs" />
-                    <span className="text-xs font-semibold text-green-700">
-                      ZIP Available
-                    </span>
-                  </div>
+                {currentShipment.carId?.images?.length > 0 && (
+                  <button
+                    onClick={handleDownload}
+                    disabled={downloading}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 transition-colors text-sm font-medium"
+                    title="Download all photos as ZIP"
+                  >
+                    <FaDownload />
+                    <span>Download</span>
+                  </button>
                 )}
               </>
             )}

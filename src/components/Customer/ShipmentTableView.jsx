@@ -259,18 +259,23 @@ const MobileCard = memo(
                   e.stopPropagation();
                   if (
                     onViewPhotos &&
-                    (imageCount > 0 || shipment.carId?.zipFileKey)
+                    // ZIP functionality commented out
+                    // (imageCount > 0 || shipment.carId?.zipFileKey)
+                    imageCount > 0
                   ) {
                     onViewPhotos(shipment);
                   }
                 }}
                 className="relative w-16 h-16 rounded-md overflow-hidden bg-gray-100 hover:ring-2 hover:ring-blue-500 transition-all group"
                 title={
-                  imageCount > 0 || shipment.carId?.zipFileKey
+                  // ZIP functionality commented out
+                  // imageCount > 0 || shipment.carId?.zipFileKey
+                  imageCount > 0
                     ? "Click to view photos"
                     : "No photos available"
                 }
-                disabled={!(imageCount > 0 || shipment.carId?.zipFileKey)}
+                disabled={!(imageCount > 0)}
+                // disabled={!(imageCount > 0 || shipment.carId?.zipFileKey)} // ZIP functionality commented out
               >
                 <LazyImage
                   src={thumbnail}
@@ -289,12 +294,14 @@ const MobileCard = memo(
                     +{imageCount - 1}
                   </div>
                 )}
-                {shipment.carId?.zipFileKey && (
-                  <div className="absolute top-0 right-0 bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-bl flex items-center gap-1">
-                    <FaFileArchive className="w-2.5 h-2.5" />
-                    <span>ZIP</span>
-                  </div>
-                )}
+                {/* ZIP functionality commented out
+              {shipment.carId?.zipFileKey && (
+                <div className="absolute top-0 right-0 bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-bl flex items-center gap-1">
+                  <FaFileArchive className="w-2.5 h-2.5" />
+                  <span>ZIP</span>
+                </div>
+              )}
+              */}
               </button>
             ) : (
               <div className="w-16 h-16 rounded-md bg-gray-100 flex items-center justify-center">
@@ -537,19 +544,25 @@ const DesktopTable = memo(
                             e.stopPropagation();
                             if (
                               onViewPhotos &&
-                              (imageCount > 0 || shipment.carId?.zipFileKey)
+                              // ZIP functionality commented out
+                              // (imageCount > 0 || shipment.carId?.zipFileKey)
+                              imageCount > 0
                             ) {
                               onViewPhotos(shipment);
                             }
                           }}
                           className="w-12 h-12 rounded-md overflow-hidden bg-gray-100 ring-1 ring-gray-200 hover:ring-2 hover:ring-blue-500 transition-all cursor-pointer group relative"
                           title={
-                            imageCount > 0 || shipment.carId?.zipFileKey
+                            // ZIP functionality commented out
+                            // imageCount > 0 || shipment.carId?.zipFileKey
+                            imageCount > 0
                               ? "Click to view photos"
                               : "No photos available"
                           }
                           disabled={
-                            !(imageCount > 0 || shipment.carId?.zipFileKey)
+                            // ZIP functionality commented out
+                            // !(imageCount > 0 || shipment.carId?.zipFileKey)
+                            !(imageCount > 0)
                           }
                         >
                           <LazyImage
@@ -564,12 +577,14 @@ const DesktopTable = memo(
                               </span>
                             </div>
                           )}
-                          {shipment.carId?.zipFileKey && (
-                            <div className="absolute top-0 right-0 bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-bl flex items-center gap-1">
-                              <FaFileArchive className="w-2.5 h-2.5" />
-                              <span>ZIP</span>
-                            </div>
-                          )}
+                          {/* ZIP functionality commented out
+                        {shipment.carId?.zipFileKey && (
+                          <div className="absolute top-0 right-0 bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-bl flex items-center gap-1">
+                            <FaFileArchive className="w-2.5 h-2.5" />
+                            <span>ZIP</span>
+                          </div>
+                        )}
+                        */}
                         </button>
                       ) : (
                         <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center ring-1 ring-gray-200">

@@ -16,7 +16,7 @@ import {
 import { toast } from "react-toastify";
 import {
   downloadShipmentPhotos,
-  downloadZipFile,
+  // downloadZipFile, // ZIP functionality commented out
 } from "../../utils/photoDownload";
 
 const ShipmentDetailModal = ({
@@ -256,8 +256,10 @@ const ShipmentDetailModal = ({
               </div>
 
               {/* Photos Section */}
-              {(shipment?.carId?.images?.length > 0 ||
-                shipment?.carId?.zipFileKey) && (
+              {/* ZIP functionality commented out - simplified condition */}
+              {/* {(shipment?.carId?.images?.length > 0 ||
+                shipment?.carId?.zipFileKey) && ( */}
+              {shipment?.carId?.images?.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -269,6 +271,7 @@ const ShipmentDetailModal = ({
                           Vehicle Photos
                         </h3>
                         <div className="flex items-center gap-2 mt-1">
+                          {/* ZIP functionality commented out
                           {shipment.carId?.zipFileKey && (
                             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-100 border border-green-300 rounded-lg">
                               <FaFileArchive className="text-green-700 text-xs" />
@@ -277,14 +280,11 @@ const ShipmentDetailModal = ({
                               </span>
                             </div>
                           )}
+                          */}
                           <p className="text-sm text-gray-600">
-                            {shipment.carId?.zipFileKey
-                              ? `${
-                                  shipment.carId?.images?.length || 0
-                                } image(s) + ZIP file`
-                              : `${
-                                  shipment.carId?.images?.length || 0
-                                } image(s) available`}
+                            {`${
+                              shipment.carId?.images?.length || 0
+                            } image(s) available`}
                           </p>
                         </div>
                       </div>
@@ -301,6 +301,7 @@ const ShipmentDetailModal = ({
                           View Photos
                         </button>
                       )}
+                      {/* ZIP functionality commented out
                       {shipment.carId?.zipFileKey && (
                         <button
                           onClick={async () => {
@@ -324,6 +325,7 @@ const ShipmentDetailModal = ({
                           <span>Download ZIP</span>
                         </button>
                       )}
+                      */}
                       <button
                         onClick={async () => {
                           try {
@@ -336,11 +338,7 @@ const ShipmentDetailModal = ({
                           }
                         }}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        title={
-                          shipment.carId?.zipFileKey
-                            ? "Download ZIP file (if available) or bundle individual photos"
-                            : "Download all photos as ZIP"
-                        }
+                        title="Download all photos as ZIP"
                       >
                         <FaDownload />
                         <span>Download All</span>

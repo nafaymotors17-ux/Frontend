@@ -14,6 +14,7 @@ import {
   clearFilters,
 } from "../../redux/features/customerSlice";
 import { customerShipmentAPI } from "../../services/customerApiService";
+import { downloadShipmentPhotos } from "../../utils/photoDownload";
 import ShipmentTable from "./ShipmentTableView";
 import CustomerHeader from "./Header";
 import CustomerFilters from "./Filters";
@@ -216,7 +217,7 @@ const CustomerDashboard = () => {
     }
   }, []);
 
-  // Handle photo download - checks for ZIP first, then individual photos
+  // Handle photo download - uses signed URLs and creates ZIP in browser
   const handleDownloadPhoto = useCallback(async (shipment) => {
     const shipmentId = shipment._id || shipment.id;
     if (!shipmentId) {
@@ -224,84 +225,15 @@ const CustomerDashboard = () => {
       return;
     }
 
-    const accessToken = localStorage.getItem("accessToken");
-    if (!accessToken) {
-      toast.error("Authentication required. Please login again.");
-      return;
-    }
-
-    const downloadUrl = `${
-      import.meta.env.VITE_API_URL
-    }/photos/download?shipmentId=${shipmentId}`;
-
-    const preparingToast = toast.loading("Preparing download...", {
-      position: "bottom-right",
-    });
-
     try {
-      const response = await fetch(downloadUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const fileName = shipment.carId?.chassisNumber
+        ? `${shipment.carId.chassisNumber}_photos.zip`
+        : `photos_${shipmentId}.zip`;
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch {
-          errorData = {
-            message: errorText || `Download failed: ${response.status}`,
-          };
-        }
-        throw new Error(
-          errorData.message || `Download failed: ${response.status}`
-        );
-      }
-
-      // Check content-type BEFORE reading response body
-      const contentType = response.headers.get("content-type") || "";
-
-      // If JSON response (ZIP file from CloudFront)
-      if (contentType.includes("application/json")) {
-        const data = await response.json();
-        if (data.downloadUrl && data.type === "zip") {
-          // Direct download from CloudFront URL
-          window.open(data.downloadUrl, "_blank");
-          toast.dismiss(preparingToast);
-          toast.success(
-            "Download started! Check your browser's download manager."
-          );
-          return;
-        } else {
-          throw new Error(data.message || "Invalid download response");
-        }
-      }
-
-      // Otherwise, it's a blob (ZIP created from individual photos)
-      const blob = await response.blob();
-      if (blob.size === 0) {
-        throw new Error("Downloaded file is empty");
-      }
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${shipment.carId?.chassisNumber || shipmentId}_photos.zip`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      toast.dismiss(preparingToast);
-      toast.success("Download started! Check your browser's download manager.");
+      await downloadShipmentPhotos(shipmentId, fileName);
     } catch (error) {
       console.error("Download error:", error);
-      toast.dismiss(preparingToast);
-      toast.error(
-        error.message || "Failed to download photos. Please try again."
-      );
+      // Error already handled in downloadShipmentPhotos
     }
   }, []);
 
@@ -335,7 +267,7 @@ const CustomerDashboard = () => {
     });
   }, []);
 
-  // Handle mass download - bundle all into single ZIP with progress
+  // Handle mass download - downloads photos using signed URLs and bundles into single ZIP
   const handleMassDownload = useCallback(async () => {
     if (selectedShipments.length === 0) {
       toast.warning("Please select at least one shipment to download");
@@ -369,16 +301,7 @@ const CustomerDashboard = () => {
       }
     );
 
-    // Use setTimeout to ensure toast updates happen outside render cycle
-    const updateProgress = (message) => {
-      setTimeout(() => {
-        toast.update(progressToast, {
-          render: message,
-          type: "info",
-        });
-      }, 0);
-    };
-
+    // Download each shipment and bundle into single ZIP
     try {
       // Import JSZip dynamically
       const JSZip = (await import("jszip")).default;
@@ -391,15 +314,20 @@ const CustomerDashboard = () => {
       for (let i = 0; i < selectedShipments.length; i++) {
         const shipmentId = selectedShipments[i];
         const shipment = shipments.find((s) => (s._id || s.id) === shipmentId);
-        const downloadUrl = `${
-          import.meta.env.VITE_API_URL
-        }/photos/download?shipmentId=${shipmentId}`;
 
         try {
           // Update progress
-          updateProgress(
-            `Downloading shipment ${i + 1}/${selectedShipments.length}...`
-          );
+          toast.update(progressToast, {
+            render: `Downloading shipment ${i + 1}/${
+              selectedShipments.length
+            }...`,
+            type: "info",
+          });
+
+          // Get signed URLs from backend
+          const downloadUrl = `${
+            import.meta.env.VITE_API_URL
+          }/photos/download?shipmentId=${shipmentId}`;
 
           const response = await fetch(downloadUrl, {
             method: "GET",
@@ -415,58 +343,48 @@ const CustomerDashboard = () => {
             );
           }
 
-          const contentType = response.headers.get("content-type") || "";
-          let zipBlob = null;
-
-          // If JSON response (ZIP file from CloudFront)
-          if (contentType.includes("application/json")) {
-            const data = await response.json();
-            if (data.downloadUrl && data.type === "zip") {
-              // Download ZIP from CloudFront URL
-              const zipResponse = await fetch(data.downloadUrl);
-              if (!zipResponse.ok)
-                throw new Error("Failed to download ZIP from CloudFront");
-              zipBlob = await zipResponse.blob();
-            } else {
-              throw new Error(data.message || "Invalid download response");
-            }
-          } else {
-            // Blob response (ZIP created from individual photos)
-            zipBlob = await response.blob();
-            if (zipBlob.size === 0) {
-              throw new Error("Downloaded file is empty");
-            }
+          const data = await response.json();
+          if (!data.photos || data.photos.length === 0) {
+            throw new Error("No photos available");
           }
 
-          // Extract files from downloaded ZIP and add to master ZIP
-          const shipmentZip = await JSZip.loadAsync(zipBlob);
           const folderName = shipment?.carId?.chassisNumber || shipmentId;
 
-          // Add all files from this shipment's ZIP to master ZIP with folder structure
-          // Use Promise.all to handle async file operations properly
-          const filePromises = [];
-          shipmentZip.forEach((relativePath, file) => {
-            if (!file.dir) {
-              // Use arraybuffer for browser compatibility (not nodebuffer)
-              filePromises.push(
-                file.async("arraybuffer").then((arrayBuffer) => {
-                  zip.file(`${folderName}/${relativePath}`, arrayBuffer);
-                })
-              );
+          // Download all photos in parallel using Promise.all for efficiency
+          const photoDownloadPromises = data.photos.map(async (photo) => {
+            try {
+              const photoResponse = await fetch(photo.url);
+              if (!photoResponse.ok) return null;
+
+              const photoBlob = await photoResponse.blob();
+              return {
+                fileName: photo.fileName,
+                blob: photoBlob,
+                folderName: folderName,
+              };
+            } catch (error) {
+              console.error(`Error downloading ${photo.fileName}:`, error);
+              return null;
             }
           });
 
-          // Wait for all files to be added
-          await Promise.all(filePromises);
+          // Wait for all photos to download in parallel
+          const photoResults = await Promise.all(photoDownloadPromises);
+
+          // Add successful downloads to ZIP
+          photoResults.forEach((result) => {
+            if (result) {
+              zip.file(`${result.folderName}/${result.fileName}`, result.blob);
+            }
+          });
 
           successCount++;
         } catch (error) {
           console.error(`Error downloading shipment ${shipmentId}:`, error);
           failCount++;
-          // Continue with other shipments even if one fails
         }
 
-        // Small delay to avoid overwhelming the system
+        // Small delay between shipments
         if (i < selectedShipments.length - 1) {
           await new Promise((resolve) => setTimeout(resolve, 200));
         }
@@ -474,11 +392,12 @@ const CustomerDashboard = () => {
 
       // Generate final ZIP
       if (successCount > 0) {
-        updateProgress(
-          `Creating bundle (${successCount} shipment${
+        toast.update(progressToast, {
+          render: `Creating bundle (${successCount} shipment${
             successCount !== 1 ? "s" : ""
-          })...`
-        );
+          })...`,
+          type: "info",
+        });
 
         // Generate ZIP as blob (browser-compatible)
         const finalZipBlob = await zip.generateAsync({
@@ -499,11 +418,13 @@ const CustomerDashboard = () => {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
 
-        // Show final result first, then clear selection
+        // Clear selection and show result
+        setSelectedShipments([]);
         toast.dismiss(progressToast);
+
         if (failCount > 0) {
           toast.warning(
-            `Downloaded ${successCount} shipment(s), ${failCount} failed. Check console for details.`,
+            `Downloaded ${successCount} shipment(s), ${failCount} failed.`,
             { position: "bottom-right", autoClose: 5000 }
           );
         } else {
@@ -512,13 +433,7 @@ const CustomerDashboard = () => {
             { position: "bottom-right", autoClose: 4000 }
           );
         }
-
-        // Clear selection after showing result (use setTimeout to avoid state update during render)
-        setTimeout(() => {
-          setSelectedShipments([]);
-        }, 0);
       } else {
-        // No successful downloads
         toast.dismiss(progressToast);
         toast.error(`Failed to download any shipments. Please try again.`, {
           position: "bottom-right",

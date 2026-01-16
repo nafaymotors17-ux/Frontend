@@ -378,104 +378,12 @@ export const shipmentAPI = {
     }
   },
 
-  // Upload ZIP file for a shipment
+  // ZIP upload functionality removed - no longer needed
+  /*
   async uploadZipFile(shipmentId, zipFile, onProgress) {
-    if (!shipmentId || !zipFile) {
-      throw new Error("Shipment ID and ZIP file are required");
-    }
-
-    // Validate ZIP file size (max 2MB)
-    if (zipFile.size > 2 * 1024 * 1024) {
-      throw new Error("ZIP file size exceeds 2MB limit");
-    }
-
-    // Validate file type
-    if (!zipFile.name.endsWith(".zip") && zipFile.type !== "application/zip") {
-      throw new Error("File must be a ZIP file");
-    }
-
-    const accessToken = localStorage.getItem("accessToken");
-
-    // 1. Get signed URL for ZIP upload
-    const signedRes = await fetch(
-      `${import.meta.env.VITE_API_URL}/photos/upload-zip`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ shipmentId }),
-      }
-    );
-
-    if (!signedRes.ok) {
-      const error = await signedRes.json();
-      throw new Error(error.message || "Failed to get ZIP upload URL");
-    }
-
-    const { uploadUrl, key, fileName } = await signedRes.json();
-
-    if (onProgress) {
-      onProgress({ current: 0, total: 1, percentage: 0, status: "uploading" });
-    }
-
-    // 2. Upload ZIP file to S3
-    const uploadRes = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/zip",
-      },
-      body: zipFile,
-    });
-
-    if (!uploadRes.ok) {
-      throw new Error("Failed to upload ZIP file to S3");
-    }
-
-    if (onProgress) {
-      onProgress({
-        current: 1,
-        total: 1,
-        percentage: 50,
-        status: "confirming",
-      });
-    }
-
-    // 3. Confirm ZIP upload
-    const confirmRes = await fetch(
-      `${import.meta.env.VITE_API_URL}/photos/confirm-zip`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          shipmentId,
-          zipFileKey: key,
-          zipFileSize: zipFile.size,
-          // zipFileUrl removed - will be constructed from key using CloudFront
-        }),
-      }
-    );
-
-    if (!confirmRes.ok) {
-      const error = await confirmRes.json();
-      throw new Error(error.message || "Failed to confirm ZIP upload");
-    }
-
-    if (onProgress) {
-      onProgress({
-        current: 1,
-        total: 1,
-        percentage: 100,
-        status: "completed",
-      });
-    }
-
-    return await confirmRes.json();
+    // ... ZIP upload code removed
   },
+  */
 
   async getShipmentById(shipmentId) {
     const accessToken = localStorage.getItem("accessToken");

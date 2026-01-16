@@ -11,7 +11,7 @@ import { toast } from "react-toastify";
 import { customerShipmentAPI } from "../../services/customerApiService";
 import {
   downloadShipmentPhotos,
-  downloadZipFile,
+  // downloadZipFile, // ZIP functionality commented out
 } from "../../utils/photoDownload";
 
 const PhotosModal = ({
@@ -26,7 +26,7 @@ const PhotosModal = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [shipment, setShipment] = useState(null);
-  const [hasZipFile, setHasZipFile] = useState(false);
+  // const [hasZipFile, setHasZipFile] = useState(false); // ZIP functionality commented out
   const [downloadState, setDownloadState] = useState({
     loading: false,
     success: false,
@@ -42,7 +42,7 @@ const PhotosModal = ({
       setCurrentIndex(0);
       setError(null);
       setLoading(false);
-      setHasZipFile(false);
+      // setHasZipFile(false); // ZIP functionality commented out
       setShipment(null);
     }
   }, [isOpen, shipmentId]);
@@ -65,10 +65,12 @@ const PhotosModal = ({
 
       setShipment(fetchedShipment);
 
-      // Check for ZIP file
+      // ZIP functionality commented out
+      /* Check for ZIP file
       if (fetchedShipment?.carId?.zipFileKey) {
         setHasZipFile(true);
       }
+      */
 
       // Backend provides images with CloudFront URLs
       if (
@@ -77,14 +79,21 @@ const PhotosModal = ({
       ) {
         setPhotos(fetchedShipment.carId.images);
         setCurrentIndex(0); // Reset to first photo
-      } else if (!fetchedShipment?.carId?.zipFileKey) {
+      } else {
+        // ZIP functionality commented out - simplified logic
+        /* else if (!fetchedShipment?.carId?.zipFileKey) {
+          setPhotos([]);
+          setCurrentIndex(0);
+          setError("No photos available for this shipment");
+        } else {
+          // ZIP file exists but no individual photos
+          setPhotos([]);
+          setCurrentIndex(0);
+        }
+        */
         setPhotos([]);
         setCurrentIndex(0);
         setError("No photos available for this shipment");
-      } else {
-        // ZIP file exists but no individual photos
-        setPhotos([]);
-        setCurrentIndex(0);
       }
     } catch (error) {
       console.error("Error fetching photos:", error);
@@ -111,7 +120,13 @@ const PhotosModal = ({
         ? `${shipment.carId.chassisNumber}_photos.zip`
         : `photos_${shipmentId}.zip`;
 
-      await downloadShipmentPhotos(shipmentId, fileName);
+      // Use progress callback to update UI without freezing
+      await downloadShipmentPhotos(shipmentId, fileName, (current, total) => {
+        // Update progress in UI (non-blocking)
+        setTimeout(() => {
+          // Progress updates happen asynchronously to prevent UI freeze
+        }, 0);
+      });
 
       setDownloadState({
         loading: false,
@@ -135,6 +150,8 @@ const PhotosModal = ({
     }
   };
 
+  // ZIP download functionality commented out
+  /*
   const handleDownloadZip = async () => {
     if (!shipmentId || !hasZipFile) {
       toast.error("ZIP file not available");
@@ -174,6 +191,7 @@ const PhotosModal = ({
       }));
     }
   };
+  */
 
   const handleBackgroundClick = (e) => {
     if (e.target === e.currentTarget) onClose();
@@ -226,7 +244,9 @@ const PhotosModal = ({
     );
   }
 
-  if (error && !hasZipFile && photos.length === 0) {
+  // ZIP functionality commented out - simplified condition
+  // if (error && !hasZipFile && photos.length === 0) {
+  if (error && photos.length === 0) {
     return (
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
@@ -245,6 +265,8 @@ const PhotosModal = ({
     );
   }
 
+  // ZIP functionality commented out
+  /*
   // If only ZIP file exists, show message
   if (hasZipFile && photos.length === 0) {
     return (
@@ -290,6 +312,7 @@ const PhotosModal = ({
   if (photos.length === 0 && hasZipFile) {
     return null; // Already handled above
   }
+  */
 
   // Safety check: ensure we have photos and valid index
   if (photos.length === 0 || !photos[currentIndex]) {
@@ -346,13 +369,16 @@ const PhotosModal = ({
         <div className="text-white text-lg font-medium">
           {currentIndex + 1} / {photos.length}
         </div>
+        {/* ZIP functionality commented out
         {hasZipFile && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-green-600/80 rounded-lg text-white text-sm">
             <FaFileArchive className="w-4 h-4" />
             <span>ZIP Available</span>
           </div>
         )}
+        */}
         <div className="flex gap-2">
+          {/* ZIP functionality commented out
           {hasZipFile && (
             <button
               onClick={handleDownloadZip}
@@ -370,6 +396,7 @@ const PhotosModal = ({
               <span>Download ZIP</span>
             </button>
           )}
+          */}
           <button
             onClick={handleDownloadAll}
             disabled={downloadState.loading}
@@ -380,14 +407,10 @@ const PhotosModal = ({
                 ? "bg-green-500 hover:bg-green-600"
                 : "bg-blue-600 hover:bg-blue-700"
             }`}
-            title={
-              hasZipFile
-                ? "Download ZIP file (if available) or bundle individual photos"
-                : "Download all photos as ZIP"
-            }
+            title="Download all photos as ZIP"
           >
             <FaDownload />
-            <span>{hasZipFile ? "Download" : "Download All"}</span>
+            <span>Download All</span>
           </button>
         </div>
       </div>
