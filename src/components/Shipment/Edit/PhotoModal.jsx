@@ -1,10 +1,26 @@
 // src/pages/EditShipmentPage/PhotoModal.jsx
 import { useEffect } from "react";
+import { toast } from "react-toastify";
+import { downloadShipmentPhotos } from "../../../utils/photoDownload";
 
-const PhotoModal = ({ photos, currentIndex, onClose, onNavigate }) => {
+const PhotoModal = ({ photos, currentIndex, onClose, onNavigate, shipmentId, isSubAdmin }) => {
   if (!photos || photos.length === 0) return null;
 
   const currentPhoto = photos[currentIndex];
+
+  // Handle download
+  const handleDownload = async () => {
+    if (!shipmentId) {
+      toast.error("Shipment ID not found");
+      return;
+    }
+    try {
+      await downloadShipmentPhotos(shipmentId);
+    } catch (error) {
+      console.error("Download error:", error);
+      toast.error(error.message || "Failed to download photos");
+    }
+  };
 
   const handleBackgroundClick = (e) => {
     if (e.target === e.currentTarget) onClose();
@@ -49,6 +65,30 @@ const PhotoModal = ({ photos, currentIndex, onClose, onNavigate }) => {
           />
         </svg>
       </button>
+
+      {/* Download button - visible for all users including subadmin */}
+      {shipmentId && (
+        <button
+          onClick={handleDownload}
+          className="absolute top-4 right-20 text-white hover:text-gray-300 transition-colors z-10 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg flex items-center gap-2"
+          title="Download all photos"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            />
+          </svg>
+          <span className="text-sm font-medium">Download</span>
+        </button>
+      )}
 
       {/* Navigation arrows */}
       {photos.length > 1 && (

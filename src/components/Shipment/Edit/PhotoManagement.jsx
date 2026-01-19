@@ -12,6 +12,20 @@ const PhotoManagement = ({
   onCancel,
   operationLoading,
 }) => {
+  // Get user role
+  let user = null;
+  try {
+    const storedUser = localStorage.getItem("userData");
+    if (storedUser) {
+      user = JSON.parse(storedUser);
+    }
+  } catch (err) {
+    console.warn("Failed to parse userData from localStorage", err);
+  }
+
+  const isSubAdmin = user?.role === "subadmin";
+  const isAdmin = user?.role === "admin";
+
   const fileInputRef = useRef(null);
   // ZIP upload removed - zipInputRef no longer needed
   // const zipInputRef = useRef(null);
@@ -479,7 +493,7 @@ const PhotoManagement = ({
               {newPhotos.length > 0 && ` • ${totalSizeMB}MB to upload`}
             </p>
           </div>
-          {isEditing && !isUploading && (
+          {isEditing && !isUploading && !isSubAdmin && (
             <div className="flex gap-2">
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -639,6 +653,7 @@ const PhotoManagement = ({
                   </button>
 
                   {isEditing &&
+                    !isSubAdmin &&
                     !photosToDelete.includes(photo.id) &&
                     !isUploading && (
                       <button
@@ -664,7 +679,7 @@ const PhotoManagement = ({
                         </svg>
                       </button>
                     )}
-                  {photosToDelete.includes(photo.id) && !isUploading && (
+                  {photosToDelete.includes(photo.id) && !isUploading && !isSubAdmin && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -708,7 +723,7 @@ const PhotoManagement = ({
               />
             </svg>
             <p className="text-gray-500 mb-4">No photos uploaded yet</p>
-            {isEditing && (
+            {isEditing && !isSubAdmin && (
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -719,8 +734,8 @@ const PhotoManagement = ({
           </div>
         )}
 
-        {/* Change Summary */}
-        {hasChanges && !isUploading && (
+        {/* Change Summary - hidden for subadmin */}
+        {hasChanges && !isUploading && !isSubAdmin && (
           <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <h3 className="text-sm font-medium text-gray-900 mb-2">
               Photo Changes Summary
@@ -745,8 +760,8 @@ const PhotoManagement = ({
           </div>
         )}
 
-        {/* Save button when editing */}
-        {isEditing && (
+        {/* Save button when editing - hidden for subadmin */}
+        {isEditing && !isSubAdmin && (
           <div className="mt-6 flex justify-end gap-3">
             <button
               onClick={handleCancel}
@@ -782,6 +797,8 @@ const PhotoManagement = ({
           currentIndex={photoModal.currentIndex}
           onClose={closePhotoModal}
           onNavigate={navigatePhoto}
+          shipmentId={shipmentId}
+          isSubAdmin={isSubAdmin}
         />
       )}
     </div>

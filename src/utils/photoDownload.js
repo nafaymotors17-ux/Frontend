@@ -112,7 +112,7 @@ export const downloadShipmentPhotos = async (
     // Download all photos in parallel using Promise.all for efficiency
     const downloadPromises = photos.map(async (photo, index) => {
       try {
-        // Download photo from signed URL (CloudFront cached)
+        // Download photo from S3 signed URL (temporary access for secure downloads)
         const photoResponse = await fetch(photo.url);
         if (!photoResponse.ok) {
           console.warn(`Failed to download ${photo.fileName}, skipping...`);

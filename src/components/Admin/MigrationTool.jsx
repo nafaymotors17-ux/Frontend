@@ -116,11 +116,7 @@ const MigrationTool = () => {
   };
 
   const rollbackMigration = async () => {
-    // if (
-    //   !window.confirm(
-    //     "Are you sure you want to rollback the migration? This will remove vesselId references from shipments."
-    //   )
-    // ) {
+    // if (!window.confirm("Are you sure you want to rollback the migration? This will remove vesselId references from shipments.")) {
     //   return;
     // }
 
@@ -155,51 +151,50 @@ const MigrationTool = () => {
   };
 
   const cleanupOldFields = async () => {
-    // if (
-    //   !window.confirm(
-    //     "WARNING: This will permanently remove vesselName, pod, and jobNumber fields from shipments. This is IRREVERSIBLE! Are you absolutely sure?"
-    //   )
-    // ) {
-    //   return;
-    // }
+    if (
+      !window.confirm(
+        "WARNING: This will permanently remove vesselName, pod, and jobNumber fields from shipments. This is IRREVERSIBLE! Are you absolutely sure?"
+      )
+    ) {
+      return;
+    }
 
-    // if (
-    //   !window.confirm(
-    //     "This action cannot be undone. Type 'CONFIRM' to proceed."
-    //   )
-    // ) {
-    //   return;
-    // }
+    if (
+      !window.confirm(
+        "This action cannot be undone. Type 'CONFIRM' to proceed."
+      )
+    ) {
+      return;
+    }
 
-    // try {
-    //   setLoading(true);
-    //   const accessToken = localStorage.getItem("accessToken");
-    //   const response = await fetch(
-    //     `${
-    //       import.meta.env.VITE_API_URL
-    //     }/admin/migration/cleanup?confirm=true&verifyFirst=true`,
-    //     {
-    //       method: "POST",
-    //       headers: {
-    //         "Content-Type": "application/json",
-    //         Authorization: `Bearer ${accessToken}`,
-    //       },
-    //     }
-    //   );
+    try {
+      setLoading(true);
+      const accessToken = localStorage.getItem("accessToken");
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_API_URL
+        }/admin/migration/cleanup?confirm=true&verifyFirst=true`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
 
-    //   const result = await response.json();
-    //   if (result.success) {
-    //     toast.success("Cleanup completed successfully");
-    //     await fetchAnalysis();
-    //   } else {
-    //     toast.error(result.message || "Cleanup failed");
-    //   }
-    // } catch (error) {
-    //   toast.error(error.message || "Cleanup failed");
-    // } finally {
-    //   setLoading(false);
-    // }
-    window.alert("You are not authorized to perform this action");
+      const result = await response.json();
+      if (result.success) {
+        toast.success("Cleanup completed successfully");
+        await fetchAnalysis();
+      } else {
+        toast.error(result.message || "Cleanup failed");
+      }
+    } catch (error) {
+      toast.error(error.message || "Cleanup failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

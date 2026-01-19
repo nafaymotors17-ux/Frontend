@@ -22,7 +22,7 @@ const ShipmentDetailsForm = ({
   });
 
   const [hasChanges, setHasChanges] = useState(false);
-
+const user=JSON.parse(localStorage.getItem("userData"));
   // Customer options
   const customerOptions = [
     ...(customerList || []).map((c) => ({
@@ -344,6 +344,7 @@ const ShipmentDetailsForm = ({
           >
             Cancel
           </button>
+        {isEditing && user.role === "admin" && (
           <button
             onClick={handleSave}
             disabled={operationLoading || !hasChanges}
@@ -351,6 +352,7 @@ const ShipmentDetailsForm = ({
           >
             {operationLoading ? "Saving..." : "Save Changes"}
           </button>
+        )}
         </div>
       )}
     </div>

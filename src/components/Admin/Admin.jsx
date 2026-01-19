@@ -6,7 +6,7 @@ import { NavLink, useNavigate, Outlet } from "react-router-dom";
 import { toast } from "sonner";
 import { useDispatch } from "react-redux";
 import { logoutUser } from "../../redux/features/authSlice";
-import { FaChartBar, FaDatabase } from "react-icons/fa";
+import { FaChartBar, FaDatabase, FaAnchor } from "react-icons/fa";
 function Admin() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
@@ -37,6 +37,7 @@ function Admin() {
   const navLinks = [
     { to: "/admin/shipments", icon: <FaShip />, label: "Shipments" },
     { to: "/admin/users", icon: <FaUsers />, label: "Customers" },
+    { to: "/admin/vessels", icon: <FaAnchor />, label: "Vessels" },
     { to: "/admin/stats", icon: <FaChartBar />, label: "Analytics" },
     { to: "/admin/migration", icon: <FaDatabase />, label: "Migration" },
   ];

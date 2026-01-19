@@ -13,6 +13,7 @@ import CustomerDashboard from "./components/Customer/Dashboard";
 import ShipmentDetail from "./components/Customer/ShipmentDetailView";
 import ShipmentManagement from "./components/Admin/ShippmentManagement";
 import CustomerManagement from "./components/Admin/CustomerManagement";
+import VesselManagement from "./components/Admin/VesselManagement";
 import EditShipmentPage from "./components/Shipment/Edit/index";
 import NotFoundPage from "./pages/404Page";
 // import MigrationTool from "./components/Admin/MigrationTool";
@@ -61,6 +62,7 @@ function App() {
                   element={<EditShipmentPage />}
                 />
                 <Route path="users" element={<CustomerManagement />} />
+                <Route path="vessels" element={<VesselManagement />} />
                 {/* <Route path="migration" element={<MigrationTool />} /> */}
               </Route>
               <Route path="*" element={<NotFoundPage />} />
