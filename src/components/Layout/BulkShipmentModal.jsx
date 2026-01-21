@@ -1,8 +1,125 @@
-import { memo, useState } from "react";
-import Select from "react-select";
-import { FaPlus, FaTrash } from "react-icons/fa";
+import { memo, useState, useRef, useEffect } from "react";
+import { FaPlus, FaTrash, FaChevronDown, FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { shipmentAPI } from "../../services/shipmentApiService";
+
+// Simple Searchable Select Component
+function SearchableSelect({ 
+  value, 
+  options, 
+  onChange, 
+  placeholder = "Select...",
+  onClear,
+  error 
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const selectRef = useRef(null);
+
+  const selectedOption = options.find(opt => opt.value === value);
+
+  const filteredOptions = options.filter(opt => 
+    opt.labelText.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (selectRef.current && !selectRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearchTerm("");
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isOpen]);
+
+  return (
+    <div ref={selectRef} className="relative w-full">
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full min-h-[42px] rounded border px-2 py-1.5 cursor-pointer flex items-center justify-between ${
+          error ? "border-red-300" : "border-gray-300"
+        } hover:border-gray-400 bg-white`}
+      >
+        {selectedOption ? (
+          <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+            <span className="truncate font-medium text-xs text-left">
+              {selectedOption.original.name}
+            </span>
+            <span className="text-[10px] text-gray-500">
+              {selectedOption.original.userId}
+            </span>
+          </div>
+        ) : (
+          <span className="text-xs text-gray-400">{placeholder}</span>
+        )}
+        <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+          {selectedOption && onClear && (
+            <FaTimes
+              className="text-gray-400 hover:text-gray-600 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClear();
+              }}
+            />
+          )}
+          <FaChevronDown
+            className={`text-gray-400 text-xs transition-transform ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          />
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-hidden">
+          <div className="p-2 border-b border-gray-200 sticky top-0 bg-white">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search customer..."
+              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+              onClick={(e) => e.stopPropagation()}
+              autoFocus
+            />
+          </div>
+          <div className="overflow-y-auto max-h-48">
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((option) => (
+                <div
+                  key={option.value}
+                  onClick={() => {
+                    onChange(option);
+                    setIsOpen(false);
+                    setSearchTerm("");
+                  }}
+                  className={`px-3 py-2 cursor-pointer hover:bg-blue-50 ${
+                    value === option.value ? "bg-blue-100" : ""
+                  }`}
+                >
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-medium text-xs">{option.original.name}</span>
+                    <span className="text-[10px] text-gray-500">
+                      {option.original.userId}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="px-3 py-2 text-xs text-gray-500 text-center">
+                No customers found
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function BulkShipmentModal({ onClose, customerList }) {
   const customers = customerList.length ? customerList : [];
@@ -30,45 +147,11 @@ function BulkShipmentModal({ onClose, customerList }) {
   const [creationErrors, setCreationErrors] = useState([]);
 
   // --- Select Configuration ---
-  const customerOptions = [
-    ...(customers || []).map((c) => ({
-      value: c.userId,
-      label: (
-        <div
-          className="flex justify-between items-center"
-          title={`${c.name} (${c.userId})`}
-        >
-          <span className="truncate font-medium">{c.name}</span>
-          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded ml-2">
-            {c.userId}
-          </span>
-        </div>
-      ),
-      labelText: `${c.name} ${c.userId}`,
-      original: c,
-    })),
-  ];
-
-  // Simple select styles
-  const selectStyles = {
-    control: (base) => ({
-      ...base,
-      minHeight: "38px",
-      borderRadius: "0.375rem",
-      borderColor: "#d1d5db",
-      boxShadow: "none",
-      "&:hover": { borderColor: "#9ca3af" },
-    }),
-    valueContainer: (base) => ({
-      ...base,
-      padding: "2px 8px",
-    }),
-    singleValue: (base) => ({
-      ...base,
-      color: "#374151",
-    }),
-    menu: (base) => ({ ...base, zIndex: 50 }),
-  };
+  const customerOptions = (customers || []).map((c) => ({
+    value: c.userId,
+    labelText: `${c.name} (${c.userId})`,
+    original: c,
+  }));
 
   // --- Handlers ---
   const handleChange = (id, e) => {
@@ -96,14 +179,14 @@ function BulkShipmentModal({ onClose, customerList }) {
     }
   };
 
-  const handleCustomerChange = (id, opt) => {
-    const selected = opt?.original;
+  const handleCustomerChange = (id, option) => {
+    const selected = option?.original;
     setShipments((prev) =>
       prev.map((shipment) =>
         shipment.id === id
           ? {
               ...shipment,
-              userId: opt?.value || "",
+              userId: option?.value || "",
               name: selected?.name || "",
               customerId: selected ?? {},
             }
@@ -118,6 +201,21 @@ function BulkShipmentModal({ onClose, customerList }) {
         [id]: { ...prev[id], userId: null },
       }));
     }
+  };
+
+  const handleClearCustomer = (id) => {
+    setShipments((prev) =>
+      prev.map((shipment) =>
+        shipment.id === id
+          ? {
+              ...shipment,
+              userId: "",
+              name: "",
+              customerId: {},
+            }
+          : shipment
+      )
+    );
   };
 
   const addRow = () => {
@@ -353,23 +451,10 @@ function BulkShipmentModal({ onClose, customerList }) {
 
 
   // Compact CSS classes
-  const compactLabelClass = "block text-xs font-medium text-gray-700 mb-0.5";
   const compactInputClass =
     "w-full rounded border border-gray-300 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
   const compactErrorInputClass =
     "w-full rounded border border-red-300 px-2 py-1 text-xs focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500";
-  const compactSelectStyles = {
-    ...selectStyles,
-    control: (base) => ({
-      ...base,
-      minHeight: "28px",
-      fontSize: "12px",
-    }),
-    valueContainer: (base) => ({
-      ...base,
-      padding: "0 6px",
-    }),
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-2">
@@ -443,7 +528,7 @@ function BulkShipmentModal({ onClose, customerList }) {
                   <th className="border border-gray-300 px-2 py-1.5 text-xs font-semibold text-gray-700 text-left w-8">
                     #
                   </th>
-                  <th className="border border-gray-300 px-2 py-1.5 text-xs font-semibold text-gray-700 text-left min-w-[180px]">
+                  <th className="border border-gray-300 px-2 py-1.5 text-xs font-semibold text-gray-700 text-left min-w-[200px]">
                     Customer <span className="text-red-500">*</span>
                   </th>
                   <th className="border border-gray-300 px-2 py-1.5 text-xs font-semibold text-gray-700 text-left min-w-[120px]">
@@ -482,22 +567,14 @@ function BulkShipmentModal({ onClose, customerList }) {
                     <td className="border border-gray-300 px-2 py-1 text-xs text-center font-medium text-gray-600">
                       {index + 1}
                     </td>
-                    <td className="border border-gray-300 px-2 py-1">
-                      <Select
+                    <td className="border border-gray-300 px-2 py-1 min-w-[200px]">
+                      <SearchableSelect
+                        value={shipment.userId}
                         options={customerOptions}
-                        onChange={(opt) => handleCustomerChange(shipment.id, opt)}
-                        styles={compactSelectStyles}
-                        placeholder="Select..."
-                        isClearable
-                        isSearchable
-                        formatOptionLabel={(option) => option.label}
-                        getOptionLabel={(option) => option.labelText || option.label}
-                        getOptionValue={(option) => option.value}
-                        value={
-                          shipment.userId
-                            ? customerOptions.find((opt) => opt.value === shipment.userId)
-                            : null
-                        }
+                        onChange={(option) => handleCustomerChange(shipment.id, option)}
+                        onClear={() => handleClearCustomer(shipment.id)}
+                        placeholder="Select Customer..."
+                        error={!!errors[shipment.id]?.userId}
                       />
                       {errors[shipment.id]?.userId && (
                         <p className="text-red-500 text-xs mt-0.5">
