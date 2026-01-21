@@ -22,6 +22,7 @@ import ShipmentFilters from "../Shipment/ShipmentFilters";
 import ShipmentTable from "../Shipment/ShipmentTable";
 import ShipmentPagination from "../Shipment/ShipmentPagination";
 import AddShipmentModal from "../Layout/ShipmentModal";
+import BulkShipmentModal from "../Layout/BulkShipmentModal";
 import CSVModal from "../Layout/CSVModal";
 import BulkAssignVesselModal from "../Layout/BulkAssignVesselModal";
 import BulkAssignGateOutModal from "../Layout/BulkAssignGateOutModal";
@@ -48,6 +49,7 @@ const ShipmentsPage = () => {
 
   // Local state for modals
   const [showModal, setShowModal] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
   const [csvModal, setCSVModal] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState(null);
   const [saveMode, setSaveMode] = useState("save");
@@ -460,6 +462,10 @@ const ShipmentsPage = () => {
     setShowModal(true);
   }, []);
 
+  const handleAddBulkShipment = useCallback(() => {
+    setShowBulkModal(true);
+  }, []);
+
   const handleEditShipment = useCallback((shipment) => {
     setSelectedShipment(shipment);
     setSaveMode("photosOnly");
@@ -471,6 +477,14 @@ const ShipmentsPage = () => {
     setSelectedShipment(null);
     setSaveMode("save");
   }, []);
+
+  const handleCloseBulkModal = useCallback((shouldRefresh = false) => {
+    setShowBulkModal(false);
+    // Only refresh if operation was successful
+    if (shouldRefresh) {
+      fetchShipmentsData();
+    }
+  }, [fetchShipmentsData]);
 
   // Handle remarks update
   const handleUpdateRemarks = useCallback(async (updatedShipment) => {
@@ -525,6 +539,7 @@ const ShipmentsPage = () => {
         hasFiltersApplied={hasFiltersApplied}
         selectedRowsCount={selectedRows.length}
         onAddShipment={handleAddShipment}
+        onAddBulkShipment={handleAddBulkShipment}
         onExportCSV={() => setCSVModal(true)}
         onDeleteSelected={handleDeleteSelected}
         onAssignVessel={() => setShowVesselModal(true)}
@@ -570,6 +585,13 @@ const ShipmentsPage = () => {
           customerList={customers}
           shipment={selectedShipment}
           mode={saveMode}
+        />
+      )}
+
+      {showBulkModal && (
+        <BulkShipmentModal
+          onClose={handleCloseBulkModal}
+          customerList={customers}
         />
       )}
 

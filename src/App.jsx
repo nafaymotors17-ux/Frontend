@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import ScrollToTop from "./components/Common/ScrolToTop";
@@ -27,6 +28,7 @@ function App() {
   return (
     <Provider store={store}>
       <BrowserRouter>
+        <Analytics />
         <ToastContainer
           position="top-right"
           autoClose={5000}
@@ -94,7 +96,7 @@ function TokenValidator({ children }) {
               "Content-Type": "application/json",
               Authorization: `Bearer ${accessToken}`,
             },
-          }
+          },
         );
 
         if (response.status === 401) {

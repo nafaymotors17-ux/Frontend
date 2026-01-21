@@ -158,6 +158,54 @@ export const shipmentAPI = {
     return res.data;
   },
 
+  async validateBulkShipments(chassisNumbers) {
+    const accessToken = localStorage.getItem("accessToken");
+    const result = await fetch(
+      `${import.meta.env.VITE_API_URL}/admin/shipments/bulk/validate`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        credentials: "include",
+        body: JSON.stringify({ chassisNumbers }),
+      }
+    );
+    const res = await result.json();
+    
+    if (!res.success && result.status !== 200) {
+      throw new Error(res.message || "Failed to validate bulk shipments");
+    }
+    
+    return res;
+  },
+
+  async createBulkShipments(shipmentsData) {
+    const accessToken = localStorage.getItem("accessToken");
+    const result = await fetch(
+      `${import.meta.env.VITE_API_URL}/admin/shipments/bulk/create`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        credentials: "include",
+        body: JSON.stringify({ shipments: shipmentsData }),
+      }
+    );
+    const res = await result.json();
+    
+    // Return the response even if there are failures (207 status)
+    // The frontend will handle partial success
+    if (result.status === 207 || res.success) {
+      return res;
+    }
+    
+    throw new Error(res.message || "Failed to create bulk shipments");
+  },
+
   updateShipment: async (id, shipmentData) => {
     const accessToken = localStorage.getItem("accessToken");
     const response = await fetch(

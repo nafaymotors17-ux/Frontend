@@ -23,6 +23,7 @@ const ShipmentFilters = ({
   hasFiltersApplied,
   selectedRowsCount,
   onAddShipment,
+  onAddBulkShipment,
   onExportCSV,
   onDeleteSelected,
   onAssignVessel,
@@ -268,13 +269,22 @@ const ShipmentFilters = ({
       <div className=" flex flex-col sm:flex-row justify-between items-center gap-3 pt-1 border-t">
         <div className="flex flex-wrap gap-2">
           {user?.role === "admin" && (
-            <button
-              onClick={onAddShipment}
-              className="flex items-center gap-1 bg-blue-600 text-white px-1 rounded text-xs"
-            >
-              <FaPlus title="Add Shipment" className="text-xs" />
-              Add new
-            </button>
+            <>
+              <button
+                onClick={onAddShipment}
+                className="flex items-center gap-1 bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700"
+              >
+                <FaPlus title="Add Single Shipment" className="text-xs" />
+                Add Single
+              </button>
+              <button
+                onClick={onAddBulkShipment}
+                className="flex items-center gap-1 bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+              >
+                <FaPlus title="Add Multiple Shipments" className="text-xs" />
+                Add Multiple
+              </button>
+            </>
           )}
           <button
             onClick={onExportCSV}
